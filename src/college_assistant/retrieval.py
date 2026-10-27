@@ -34,14 +34,14 @@ def _split_text(text: str, source: str) -> list[EvidenceChunk]:
     """Split extracted material into bounded, source-labelled passages."""
     chunks: list[EvidenceChunk] = []
     # Keep page markers when extracted from PDFs so citations can point back to a page.
-    page_parts = re.split(r"(?=---\\s*Page\\s+\\d+\\s*---)", text)
+    page_parts = re.split(r"(?=---\s*Page\s+\d+\s*---)", text)
     for page_part in page_parts:
-        page_match = re.search(r"---\\s*Page\\s+(\\d+)\\s*---", page_part)
+        page_match = re.search(r"---\s*Page\s+(\d+)\s*---", page_part)
         location = f"page {page_match.group(1)}" if page_match else "text"
-        body = re.sub(r"---\\s*Page\\s+\\d+\\s*---", "", page_part).strip()
+        body = re.sub(r"---\s*Page\s+\d+\s*---", "", page_part).strip()
         if not body:
             continue
-        paragraphs = [p.strip() for p in re.split(r"\\n\\s*\\n", body) if p.strip()]
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
         current = ""
         for paragraph in paragraphs:
             # Break very long paragraphs without losing their content.
@@ -50,9 +50,9 @@ def _split_text(text: str, source: str) -> list[EvidenceChunk]:
                 if current and len(current) + len(piece) + 2 > 1400:
                     chunks.append(EvidenceChunk(current, source, location))
                     # Small overlap keeps definitions connected across chunk boundaries.
-                    current = current[-180:] + "\\n" + piece
+                    current = current[-180:] + "\n" + piece
                 else:
-                    current = (current + "\\n\\n" + piece).strip()
+                    current = (current + "\n\n" + piece).strip()
         if current:
             chunks.append(EvidenceChunk(current, source, location))
     return chunks
@@ -107,8 +107,8 @@ def _read_material(path: Path) -> str:
             for page_number, page in enumerate(pdf, start=1):
                 page_text = page.get_text("text").strip()
                 if page_text:
-                    pages.append(f"--- Page {page_number} ---\\n{page_text}")
-        return "\\n\\n".join(pages)
+                    pages.append(f"--- Page {page_number} ---\n{page_text}")
+        return "\n\n".join(pages)
     return ""
 
 

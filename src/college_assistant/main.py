@@ -61,8 +61,7 @@ def _show_solution(assignment_id: int) -> None:
             "No saved solution file exists for this assignment. "
             "If the assignment is still not submitted, use --regenerate-draft ID to create a new draft."
         )
-    print(f'Assignment: {item["title"]}\nFile: {path_value}\n')
-    print(Path(path_value).read_text(encoding="utf-8"))
+    print(f'Assignment: {item["title"]}\nWord solution file: {path_value}\nOpen this .docx file in Microsoft Word to review it.')
 
 
 def _approve_solution(assignment_id: int) -> None:
@@ -73,8 +72,9 @@ def _approve_solution(assignment_id: int) -> None:
     if not draft or not Path(draft).is_file():
         raise SystemExit("There is no draft file to approve.")
     SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
-    approved = SOLUTIONS_DIR / f"assignment_{assignment_id}_approved.md"
-    approved.write_text(Path(draft).read_text(encoding="utf-8"), encoding="utf-8")
+    approved = SOLUTIONS_DIR / f"assignment_{assignment_id}_approved.docx"
+    import shutil
+    shutil.copy2(draft, approved)
     if not approve_solution(assignment_id, approved):
         raise SystemExit("Approval could not be saved to the local database.")
     print(f"Approved solution saved to: {approved.resolve()}")
@@ -108,9 +108,7 @@ def main() -> None:
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(f"Generated draft version {result['version']} for {result['title']}.")
-        print(f"Markdown draft: {Path(result['path']).resolve()}")
-        if result.get("word_path"):
-            print(f"Word document: {Path(result['word_path']).resolve()}")
+        print(f"Word document: {Path(result['word_path']).resolve()}")
         print("Nothing was submitted to Moodle. Review the draft before approving it.")
     else:
         print("Starting a manual portal sync. No background process will be started.")

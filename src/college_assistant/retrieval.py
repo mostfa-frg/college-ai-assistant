@@ -71,7 +71,7 @@ def _course_material_paths(course_id: str) -> list[Path]:
     for root in (MATERIALS_DIR, PROCESSED_DIR):
         if root.exists():
             for path in root.rglob("*"):
-                if path.is_file() and path.suffix.casefold() in {".txt", ".md", ".pdf"}:
+                if path.is_file() and path.suffix.casefold() in {".txt", ".md", ".pdf", ".docx", ".pptx"}:
                     # Course-specific folders prevent accidentally mixing another course's notes.
                     normalized = path.as_posix().casefold()
                     if str(course_id) in normalized:
@@ -109,6 +109,29 @@ def _read_material(path: Path) -> str:
                 if page_text:
                     pages.append(f"--- Page {page_number} ---\n{page_text}")
         return "\n\n".join(pages)
+    if path.suffix.casefold() == ".docx":
+        try:
+            from docx import Document
+            document = Document(path)
+            parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
+            for table in document.tables:
+                for row in table.rows:
+                    parts.append(" | ".join(cell.text.strip() for cell in row.cells))
+            return "\n".join(parts)
+        except Exception:
+            return ""
+    if path.suffix.casefold() == ".pptx":
+        try:
+            from pptx import Presentation
+            presentation = Presentation(path)
+            slides = []
+            for slide_number, slide in enumerate(presentation.slides, start=1):
+                parts = [shape.text.strip() for shape in slide.shapes if getattr(shape, "has_text_frame", False) and shape.text.strip()]
+                if parts:
+                    slides.append(f"--- Slide {slide_number} ---\n" + "\n".join(parts))
+            return "\n\n".join(slides)
+        except Exception:
+            return ""
     return ""
 
 

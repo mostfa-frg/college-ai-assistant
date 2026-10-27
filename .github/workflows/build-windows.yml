@@ -28,13 +28,16 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -e .
 
+      - name: Run tests
+        run: python -m pytest
+
       - name: Install Chromium into the portable package
         shell: pwsh
         run: |
           $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:GITHUB_WORKSPACE ".playwright-browsers"
           python -m playwright install chromium
 
-      - name: Build executable
+      - name: Build executable and ZIP
         shell: pwsh
         run: |
           $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:GITHUB_WORKSPACE ".playwright-browsers"

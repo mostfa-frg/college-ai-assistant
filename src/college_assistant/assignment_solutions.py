@@ -246,11 +246,6 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
             if active_tasks and len(candidate) > max_chars:
                 flush_chunk()
             active_tasks.append(piece)
-            # A single line may itself be longer than the requested bound only if
-            # the section heading alone leaves no room, which is handled above.
-            if len(render(active_heading, active_tasks)) > max_chars:
-                flush_chunk()
-                active_tasks.append(piece)
 
     flush_chunk()
     return [chunk for chunk in chunks if chunk]

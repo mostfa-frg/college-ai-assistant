@@ -48,9 +48,19 @@ def _show_solution(assignment_id: int) -> None:
     item = get_assignment(assignment_id)
     if not item:
         raise SystemExit(f"Assignment ID {assignment_id} was not found.")
-    path_value = item.get("approved_solution_path") or item.get("solution_path")
-    if not path_value or not Path(path_value).is_file():
-        raise SystemExit("No saved solution file exists for this assignment yet.")
+    approved_path = item.get("approved_solution_path")
+    draft_path = item.get("solution_path")
+    if approved_path and Path(approved_path).is_file():
+        path_value = approved_path
+    elif draft_path and Path(draft_path).is_file():
+        path_value = draft_path
+        if approved_path:
+            print("Warning: the approved copy is missing; showing the available draft instead.\\n")
+    else:
+        raise SystemExit(
+            "No saved solution file exists for this assignment. "
+            "If the assignment is still not submitted, use --regenerate-draft ID to create a new draft."
+        )
     print(f'Assignment: {item["title"]}\nFile: {path_value}\n')
     print(Path(path_value).read_text(encoding="utf-8"))
 

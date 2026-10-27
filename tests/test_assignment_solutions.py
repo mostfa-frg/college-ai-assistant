@@ -125,7 +125,7 @@ def test_regeneration_allows_recovery_when_approved_file_is_missing(monkeypatch,
             self.chat = type("Chat", (), {"completions": FakeCompletions()})()
 
     monkeypatch.setattr("college_assistant.assignment_solutions.OpenAI", FakeClient)
-    monkeypatch.setattr(repositories, "save_solution_draft", lambda assignment_id, path: None)
+    monkeypatch.setattr("college_assistant.assignment_solutions.save_solution_draft", lambda assignment_id, path: None)
 
     result = regenerate_assignment_draft(assignment_id=9)
     assert result["path"].endswith("_v2.docx")

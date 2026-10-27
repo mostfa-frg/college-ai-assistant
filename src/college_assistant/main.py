@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from college_assistant.config import SOLUTIONS_DIR
+from college_assistant.assignment_solutions import regenerate_assignment_draft
 from college_assistant.portal_sync import print_report, run_sync
 from college_assistant.storage.database import initialize_database
 from college_assistant.storage.repositories import (
@@ -77,6 +78,7 @@ def main() -> None:
     parser.add_argument("--show-instructions", type=int, metavar="ID", help="Print the instructions stored for an assignment.")
     parser.add_argument("--show-solution", type=int, metavar="ID", help="Print the saved draft or approved solution.")
     parser.add_argument("--approve-solution", type=int, metavar="ID", help="Approve and permanently save a draft solution.")
+    parser.add_argument("--regenerate-draft", type=int, metavar="ID", help="Generate a new versioned review draft without overwriting the existing file.")
     args = parser.parse_args()
 
     initialize_database()
@@ -90,6 +92,14 @@ def main() -> None:
         _show_solution(args.show_solution)
     elif args.approve_solution is not None:
         _approve_solution(args.approve_solution)
+    elif args.regenerate_draft is not None:
+        try:
+            result = regenerate_assignment_draft(args.regenerate_draft)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        print(f"Generated draft version {result['version']} for {result['title']}.")
+        print(f"Saved locally to: {Path(result['path']).resolve()}")
+        print("Nothing was submitted to Moodle. Review the draft before approving it.")
     else:
         print("Starting a manual portal sync. No background process will be started.")
         results = run_sync()

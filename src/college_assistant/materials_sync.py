@@ -105,6 +105,9 @@ def sync_course_materials(context, course_id: str, course_title: str | None = No
                 final_url = page.url
                 final_path = urlparse(final_url).path
                 if "/pluginfile.php/" in final_path:
+                    extension = Path(unquote(final_path)).suffix.casefold()
+                    if extension not in _ALLOWED_SUFFIXES:
+                        continue
                     if _download(context, final_url, output_dir, title, str(course_id)):
                         downloaded += 1
                     else:

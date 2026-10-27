@@ -11,6 +11,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 MATERIALS_DIR = DATA_DIR / "materials"
 PROCESSED_DIR = DATA_DIR / "processed"
 SUMMARIES_DIR = DATA_DIR / "summaries"
+SOLUTIONS_DIR = DATA_DIR / "solutions"
 PORTAL_STATE_FILE = DATA_DIR / "portal-state.json"
 DATABASE_PATH = DATA_DIR / "assistant.db"
 

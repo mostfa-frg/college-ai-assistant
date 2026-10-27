@@ -314,7 +314,13 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                 },
             ],
         )
-        content = response.choices[0].message.content
+        choice = response.choices[0]
+        if getattr(choice, "finish_reason", None) == "length":
+            raise ValueError(
+                f"The model hit its output limit in task batch {index}/{len(chunks)}; "
+                "no incomplete solution should be saved. Retry with smaller batches."
+            )
+        content = choice.message.content
         if not content or not content.strip():
             raise ValueError(f"The model returned an empty answer for source chunk {index}/{len(chunks)}.")
         if "INSUFFICIENT_ASSIGNMENT_CONTENT" in content.upper():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from openai import OpenAI
 
@@ -201,7 +202,11 @@ def regenerate_assignment_draft(assignment_id: int) -> dict:
             "Regeneration is allowed only when Moodle explicitly reports not_submitted."
         )
     if assignment["solution_status"] == "approved":
-        raise ValueError("This assignment already has an approved solution.")
+        approved_path = assignment.get("approved_solution_path")
+        if approved_path and Path(approved_path).is_file():
+            raise ValueError("This assignment already has an approved solution file.")
+        # The database status can outlive a manually deleted local file.
+        # In that case allow recovery by generating a new review draft.
     instructions = (assignment.get("instructions_text") or "").strip()
     if len(instructions) < 30:
         raise ValueError("Stored assignment instructions are missing or too short.")

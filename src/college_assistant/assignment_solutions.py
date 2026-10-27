@@ -168,12 +168,12 @@ def _split_instruction_chunks(instructions: str, max_chars: int = 4500) -> list[
 
 def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
     """Group complete numbered tasks into bounded chunks, repeating section context."""
-    text = instructions.replace("\\r\\n", "\\n").replace(r"\\n", "\\n")
+    text = instructions.replace("\r\n", "\n").replace(r"\n", "\n")
     heading_re = re.compile(
-        r"^\\s*(?:Part\\s+[A-Z]\\b.*|Scenario\\s+\\d+\\b.*|Section\\s+\\d+\\b.*)$",
+        r"^\s*(?:Part\s+[A-Z]\b.*|Scenario\s+\d+\b.*|Section\s+\d+\b.*)$",
         re.IGNORECASE,
     )
-    question_re = re.compile(r"^\\s*\\d{1,3}[.)]\\s+\\S")
+    question_re = re.compile(r"^\s*\d{1,3}[.)]\s+\S")
     lines = text.splitlines()
     units: list[tuple[str, str]] = []
     heading = ""
@@ -182,7 +182,7 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
     def flush():
         nonlocal body
         if body:
-            units.append((heading, "\\n".join(body).strip()))
+            units.append((heading, "\n".join(body).strip()))
             body = []
 
     for line in lines:
@@ -206,7 +206,7 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
     active_tasks: list[str] = []
 
     def render(section_heading: str, tasks: list[str]) -> str:
-        return "\\n\\n".join(part for part in (section_heading, *tasks) if part).strip()
+        return "\n\n".join(part for part in (section_heading, *tasks) if part).strip()
 
     def flush_chunk():
         nonlocal active_tasks
@@ -219,7 +219,6 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
             flush_chunk()
         active_heading = unit_heading or active_heading
 
-        # Split a single oversized task only when necessary, retaining its heading.
         limit = max(1, max_chars - len(active_heading) - 2)
         pieces: list[str] = []
         if len(unit_body) <= limit:
@@ -237,7 +236,7 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
                     pieces.append(piece)
                     piece = task_line
                 else:
-                    piece = (piece + "\\n" + task_line).strip()
+                    piece = (piece + "\n" + task_line).strip()
             if piece:
                 pieces.append(piece)
 

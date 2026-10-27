@@ -158,12 +158,12 @@ def _interactive_menu() -> None:
     actions = {
         "1": ("Check Moodle assignments", _check_assignments),
         "2": ("Prepare an assignment draft", _generate_draft),
-        "6": ("View assignments and draft status", _list_assignments),
-        "4": ("Open a saved Word draft", lambda: _open_solution(int(input("Assignment ID: ").strip()))),
-        "8": ("Mark a draft reviewed (local only)", lambda: _approve_solution(int(input("Assignment ID: ").strip()))),
-        "4": ("Sign in to Moodle / refresh local session", save_portal_login),
+        "3": ("Open a saved Word draft", lambda: _open_solution(int(input("Assignment ID: ").strip()))),
+        "4": ("Sign in to Moodle / refresh session", save_portal_login),
         "5": ("Set up AI provider / API key", _configure_ai),
+        "6": ("View assignments and draft status", _list_assignments),
         "7": ("Show assignment instructions", lambda: _show_instructions(int(input("Assignment ID: ").strip()))),
+        "8": ("Mark a draft reviewed (local only)", lambda: _approve_solution(int(input("Assignment ID: ").strip()))),
     }
     while True:
         print("\n" + "=" * 56 + "\n             COLLEGE AI ASSISTANT\n" + "=" * 56)
@@ -193,7 +193,6 @@ def _interactive_menu() -> None:
             print(f"\nUnexpected error: {exc}")
             print("Share the error text for troubleshooting, but never share API keys or portal-state.json.")
         input("\nPress Enter to return to the menu...")
-
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="College AI Assistant. With no options, opens the interactive menu.")

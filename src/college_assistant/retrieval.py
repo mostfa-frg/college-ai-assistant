@@ -76,7 +76,8 @@ def _course_material_paths(course_id: str) -> list[Path]:
                     normalized = path.as_posix().casefold()
                     if str(course_id) in normalized:
                         paths.add(path.resolve())
-                    elif path.parent.name.casefold() in _course_folder_names(str(course_id)):
+                    elif any(part.casefold() in _course_folder_names(str(course_id))
+                             for part in path.parts):
                         paths.add(path.resolve())
     return sorted(paths)
 

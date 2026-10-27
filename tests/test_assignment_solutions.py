@@ -161,3 +161,37 @@ def test_instruction_chunks_stay_within_limit_and_preserve_text():
     assert len(chunks) >= 3
     assert all(len(chunk) <= 2500 for chunk in chunks)
     assert "".join(chunks).replace("\n\n", "") == "A" * 2000 + "B" * 2000 + "C" * 2000
+
+
+
+def test_instruction_chunks_keep_scenarios_and_subquestions_together():
+    from college_assistant.assignment_solutions import _split_instruction_chunks
+
+    source = (
+        "Part A - Essay Questions\n"
+        "1. Explain the host and target.\n"
+        "2. Explain safe setup.\n"
+        "Part B - MCQs\n"
+        "1. Which remote method is best?\n"
+        "Scenario 1 - Safe Setup\n"
+        "1. What should be checked first?\n"
+        "2. Explain the boot sequence.\n"
+        "Scenario 2 - Network Failure\n"
+        "1. Which checkpoint should be investigated?"
+    )
+    chunks = _split_instruction_chunks(source, max_chars=1000)
+
+    scenario_one_chunks = [chunk for chunk in chunks if "Scenario 1 - Safe Setup" in chunk]
+    assert len(scenario_one_chunks) == 1
+    assert "1. What should be checked first?" in scenario_one_chunks[0]
+    assert "2. Explain the boot sequence." in scenario_one_chunks[0]
+    assert "Scenario 2 - Network Failure" in chunks[-1]
+
+
+def test_prompt_requires_explicit_mcq_and_true_false_answers():
+    from college_assistant.assignment_solutions import SYSTEM_PROMPT
+
+    prompt = SYSTEM_PROMPT.casefold()
+    assert "give the best answer explicitly" in prompt
+    assert "begin the answer with exactly **true** or **false**" in prompt
+    assert "never use missing evidence as a reason to leave a solvable question unanswered" in prompt

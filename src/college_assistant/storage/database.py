@@ -12,7 +12,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def initialize_database() -> None:
-    """Create or migrate the local database without deleting existing material records."""
+    """Create or migrate the local database without deleting existing records."""
     with get_connection() as connection:
         connection.execute("""
             CREATE TABLE IF NOT EXISTS materials (
@@ -28,10 +28,7 @@ def initialize_database() -> None:
                 UNIQUE(course_id, title)
             )
         """)
-        connection.execute("""
-            CREATE INDEX IF NOT EXISTS idx_materials_status
-            ON materials(status)
-        """)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_materials_status ON materials(status)")
         connection.execute("""
             CREATE TABLE IF NOT EXISTS sync_runs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,9 +74,26 @@ def initialize_database() -> None:
                 url TEXT NOT NULL,
                 due_at TEXT,
                 submission_status TEXT NOT NULL DEFAULT 'unknown',
+                instructions_text TEXT,
                 solution_status TEXT NOT NULL DEFAULT 'not_generated',
                 solution_path TEXT,
+                approved_at TEXT,
+                approved_solution_path TEXT,
+                generated_at TEXT,
                 last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(course_id, activity_key)
             )
         """)
+        # Migrate databases created by earlier versions.
+        existing = {
+            row["name"] for row in connection.execute("PRAGMA table_info(assignments)")
+        }
+        migrations = {
+            "instructions_text": "TEXT",
+            "approved_at": "TEXT",
+            "approved_solution_path": "TEXT",
+            "generated_at": "TEXT",
+        }
+        for column, sql_type in migrations.items():
+            if column not in existing:
+                connection.execute(f"ALTER TABLE assignments ADD COLUMN {column} {sql_type}")

@@ -4,18 +4,16 @@ A local-first assistant for checking Moodle course updates and preparing reviewa
 
 ## Use it without typing Python commands
 
-The default launch now opens an interactive console menu. The menu can:
+The default launch opens a guided console workflow:
 
-1. Sync the six configured Moodle courses and download available course materials.
-2. List assignments and the local status of drafts.
-3. Generate or regenerate a Word draft only for assignments explicitly marked `not_submitted`.
-4. Open a saved draft in the default document app.
-5. Approve a draft locally for your own review tracking.
-6. Open the Moodle login flow and save a local session.
-7. Open the local AI provider settings.
-8. Show saved assignment instructions.
+1. **Sign in to Moodle** once and save your session locally.
+2. **Check Moodle assignments** to refresh course activities and submission status. The quick check does not download every course file or generate drafts automatically.
+3. **Prepare an assignment draft** by selecting an assignment explicitly marked `not_submitted`.
+4. **Open the Word draft** and review it yourself. The assistant never submits work to Moodle.
 
-Approval is only a local status; it does not submit anything. Existing command-line options remain available for troubleshooting and automation, but they are not required for normal use.
+Unknown or submitted assignments are not eligible for generation. The menu reminds you when Moodle sign-in or an AI provider key is missing. Other options let you inspect assignments and instructions or record a local review decision.
+
+Course-material downloads are not part of the quick assignment check. Approval is a local status only and never submits anything.
 
 ## Shareable Windows build
 
@@ -27,7 +25,7 @@ To build it yourself on Windows, run PowerShell from the repository folder:
 .\build_windows.ps1
 ```
 
-This creates `CollegeAIAssistant-Windows.zip`. Extract the ZIP to a writable folder and launch `Start College AI Assistant.bat` or `CollegeAIAssistant.exe`. No Python installation is needed on the recipient's PC. The GitHub Actions workflow also creates a downloadable artifact named `CollegeAIAssistant-Windows` on pushes to `main`, version tags, or manual workflow runs; artifacts are temporary (30 days).
+This creates `CollegeAIAssistant-Windows.zip`. Extract the ZIP to a writable folder and launch `Start College AI Assistant.bat` or `CollegeAIAssistant.exe`. No Python installation is needed on the recipient's PC. GitHub Actions packaging is temporarily disabled. Build the Windows package locally with the PowerShell command above.
 
 The first launch creates user-specific files under `%LOCALAPPDATA%\CollegeAIAssistant\`:
 - `data\assistant.db`: local database.
@@ -40,7 +38,7 @@ Each friend must sign in to their own Moodle account and configure their own AI 
 
 ## AI provider configuration
 
-Choose Groq or Gemini in the local `.env` file, opened from menu option 7. Restart the program after changing settings.
+Choose Groq or Gemini in the local `.env` file, opened from menu option 5. Restart the program after changing settings.
 
 Groq:
 ```dotenv
@@ -66,7 +64,7 @@ Never commit API keys. Free-tier limits vary by provider and account.
 
 ## Moodle login and security
 
-Choose menu option 6 to open the browser and save your local Moodle session. The current login flow retains the project's existing `ignore_https_errors=True` workaround because the portal has previously shown a certificate warning. **Verify that warning with the college before entering credentials.** Do not share the saved session file; it is equivalent to a credential.
+Choose menu option 4 to open the browser and save your local Moodle session. The current login flow retains the project's existing `ignore_https_errors=True` workaround because the portal has previously shown a certificate warning. **Verify that warning with the college before entering credentials.** Do not share the saved session file; it is equivalent to a credential.
 
 ## Assignment drafts and source retrieval
 

@@ -43,7 +43,7 @@ def _extract_pdf_text(detail_page, href: str) -> str | None:
     """Download a Moodle attachment with the authenticated browser context and extract PDF text."""
     try:
         from urllib.parse import urljoin
-        import fitz
+        import pymupdf
 
         url = urljoin(detail_page.url, href)
         response = detail_page.context.request.get(url, timeout=30000)
@@ -52,9 +52,9 @@ def _extract_pdf_text(detail_page, href: str) -> str | None:
         payload = response.body()
         if not payload.startswith(b"%PDF"):
             return None
-        document = fitz.open(stream=payload, filetype="pdf")
+        document = pymupdf.open(stream=payload, filetype="pdf")
         try:
-            text = "\\n\\n".join(page.get_text("text") for page in document).strip()
+            text = "\n\n".join(page.get_text("text") for page in document).strip()
         finally:
             document.close()
         return text if len(text) >= 40 else "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED"
@@ -69,7 +69,7 @@ def _extract_assignment_instructions(detail_page) -> str | None:
         locator = detail_page.locator(selector)
         for index in range(locator.count()):
             try:
-                text = " ".join(locator.nth(index).inner_text(timeout=3000).split())
+                text = "\n".join(line.strip() for line in locator.nth(index).inner_text(timeout=3000).splitlines() if line.strip())
             except Exception:
                 continue
             if text and text not in description_parts:
@@ -99,13 +99,13 @@ def _extract_assignment_instructions(detail_page) -> str | None:
 
     sections = []
     if description_parts:
-        sections.append("ASSIGNMENT DESCRIPTION:\\n" + "\\n\\n".join(description_parts))
+        sections.append("ASSIGNMENT DESCRIPTION:\n" + "\n\n".join(description_parts))
 
     for name, href in attachments:
         if name.casefold().endswith(".pdf") or ".pdf" in href.casefold():
             extracted = _extract_pdf_text(detail_page, href)
             if extracted and extracted != "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED":
-                sections.append(f"ATTACHMENT PDF TEXT ({name}):\\n{extracted}")
+                sections.append(f"ATTACHMENT PDF TEXT ({name}):\n{extracted}")
             elif extracted == "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED":
                 sections.append(f"PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED: {name}")
             else:
@@ -113,7 +113,7 @@ def _extract_assignment_instructions(detail_page) -> str | None:
         else:
             sections.append(f"ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED: {name}")
 
-    return "\\n\\n".join(sections)[:24000]
+    return "\n\n".join(sections)[:24000]
 
 
 def _inspect_assignment(context, url: str) -> tuple[str | None, str]:

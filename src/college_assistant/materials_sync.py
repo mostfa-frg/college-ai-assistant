@@ -16,7 +16,7 @@ _COURSE_SLUGS = {
     "1324": "digital_image_processing",
     "1326": "distributed_systems",
 }
-_ALLOWED_SUFFIXES = {".pdf", ".txt", ".md"}
+_ALLOWED_SUFFIXES = {".pdf", ".txt", ".md", ".docx", ".pptx"}
 
 
 def _safe_filename(value: str) -> str:

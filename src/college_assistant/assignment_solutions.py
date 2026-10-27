@@ -46,6 +46,59 @@ def _is_placeholder_draft(content: str) -> bool:
     )
 
 
+
+def _write_word_document(markdown_path):
+    """Create a Word-friendly .docx from the saved Markdown draft."""
+    import re
+    from docx import Document
+    from docx.shared import Inches, Pt
+
+    document = Document()
+    section = document.sections[0]
+    section.top_margin = Inches(0.7)
+    section.bottom_margin = Inches(0.7)
+    section.left_margin = Inches(0.8)
+    section.right_margin = Inches(0.8)
+    document.styles["Normal"].font.name = "Arial"
+    document.styles["Normal"].font.size = Pt(11)
+
+    def add_inline(paragraph, value):
+        value = value.replace(chr(96), "")
+        parts = re.split(r"(\*\*.*?\*\*)", value)
+        for part in parts:
+            if part.startswith("**") and part.endswith("**"):
+                paragraph.add_run(part[2:-2]).bold = True
+            elif part:
+                paragraph.add_run(part)
+
+    for line in markdown_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped == "---":
+            document.add_paragraph("─" * 40)
+        elif stripped.startswith("# "):
+            document.add_heading(stripped[2:].replace("**", ""), level=1)
+        elif stripped.startswith("## "):
+            document.add_heading(stripped[3:].replace("**", ""), level=2)
+        elif stripped.startswith("### "):
+            document.add_heading(stripped[4:].replace("**", ""), level=3)
+        elif stripped.startswith("> "):
+            add_inline(document.add_paragraph(style="Quote"), stripped[2:])
+        elif re.match(r"^\s*[-*]\s+", line):
+            paragraph = document.add_paragraph(style="List Bullet")
+            add_inline(paragraph, re.sub(r"^\s*[-*]\s+", "", line))
+        elif re.match(r"^\s*\d+[.)]\s+", line):
+            paragraph = document.add_paragraph(style="List Number")
+            add_inline(paragraph, re.sub(r"^\s*\d+[.)]\s+", "", line))
+        else:
+            add_inline(document.add_paragraph(), stripped)
+
+    word_path = markdown_path.with_suffix(".docx")
+    document.save(word_path)
+    return word_path
+
+
 def generate_pending_drafts() -> list[dict]:
     """Generate once for explicitly unsubmitted assignments with captured instructions."""
     if not GROQ_API_KEY or not GROQ_MODEL:
@@ -107,8 +160,9 @@ def generate_pending_drafts() -> list[dict]:
             f"**Assignment:** {assignment['url']}\n\n{content.strip()}\n",
             encoding="utf-8",
         )
+        word_path = _write_word_document(path)
         save_solution_draft(assignment["id"], path)
-        generated.append({"id": assignment["id"], "title": assignment["title"], "path": str(path)})
+        generated.append({"id": assignment["id"], "title": assignment["title"], "path": str(path), "word_path": str(word_path)})
 
     if skipped:
         print("\nDrafts not generated because the actual assignment questions/instructions "
@@ -184,5 +238,6 @@ def regenerate_assignment_draft(assignment_id: int) -> dict:
         f"**Assignment:** {assignment['url']}\n\n{content.strip()}\n",
         encoding="utf-8",
     )
+    word_path = _write_word_document(path)
     save_solution_draft(assignment_id, path)
-    return {"id": assignment_id, "title": assignment["title"], "path": str(path), "version": version}
+    return {"id": assignment_id, "title": assignment["title"], "path": str(path), "word_path": str(word_path), "version": version}

@@ -33,3 +33,25 @@ def test_retrieval_returns_no_evidence_when_course_has_no_materials(monkeypatch,
     monkeypatch.setattr(retrieval, "list_materials", lambda course_id: [])
 
     assert retrieval.retrieve_course_evidence("1327", "GPIO voltage pinout") == []
+
+
+def test_retrieval_reads_word_materials(monkeypatch, tmp_path):
+    from docx import Document
+
+    materials = tmp_path / "materials"
+    target_course = materials / "embedded_systems"
+    target_course.mkdir(parents=True)
+    word_path = target_course / "lecture.docx"
+    document = Document()
+    document.add_paragraph("SSH provides secure command-line access to an embedded Linux target.")
+    document.save(word_path)
+
+    monkeypatch.setattr(retrieval, "MATERIALS_DIR", materials)
+    monkeypatch.setattr(retrieval, "PROCESSED_DIR", tmp_path / "processed")
+    monkeypatch.setattr(retrieval, "list_materials", lambda course_id: [])
+
+    results = retrieval.retrieve_course_evidence("1327", "SSH command-line access", top_k=2)
+
+    assert results
+    assert "SSH provides secure command-line access" in results[0].text
+    assert results[0].source == "lecture.docx"

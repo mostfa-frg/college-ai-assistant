@@ -117,8 +117,15 @@ def main() -> None:
             },
         ],
     )
+    choice = response.choices[0]
 
-    summary = response.choices[0].message.content
+    if choice.finish_reason == "length":
+        raise RuntimeError(
+            "The summary was truncated because the output token limit was reached. "
+            "Increase the token limit or split the lecture into sections."
+        )
+    summary = choice.message.content
+
 
     if not summary or not summary.strip():
         raise RuntimeError("The API returned an empty summary.")

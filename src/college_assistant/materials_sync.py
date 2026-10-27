@@ -30,7 +30,7 @@ def _sha256(payload: bytes) -> str:
 
 def _download(context, url: str, output_dir: Path, title: str, course_id: str) -> bool:
     parsed = urlparse(url)
-    filename = _safe_filename(unquote(Path(parsed.path).name))
+    filename = _safe_filename(f"{title}_{unquote(Path(parsed.path).name)}")
     suffix = Path(filename).suffix.casefold()
     if suffix not in _ALLOWED_SUFFIXES:
         return False

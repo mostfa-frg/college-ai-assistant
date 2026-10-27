@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from playwright.sync_api import sync_playwright
 
 from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
+from college_assistant.assignment_solutions import generate_pending_drafts
 from college_assistant.storage.repositories import (
     finish_sync_run,
     get_activity,
@@ -35,6 +36,36 @@ def _activity_type(url: str) -> str:
     if "/mod/forum/" in path:
         return "announcement_or_forum"
     return "activity"
+
+
+def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
+    """Read assignment instructions and classify submission state conservatively."""
+    detail_page = context.new_page()
+    try:
+        response = detail_page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        if "/login/" in detail_page.url or (response and response.status >= 400):
+            return None, "unknown"
+        body = " ".join(detail_page.locator("body").inner_text(timeout=15000).split())
+        lower = body.casefold()
+        not_submitted_phrases = (
+            "no submissions have been made", "nothing has been submitted",
+            "no attempt has been made", "not submitted",
+        )
+        submitted_phrases = (
+            "submitted for grading", "submission status: submitted",
+            "submitted on", "submission was submitted",
+        )
+        if any(phrase in lower for phrase in not_submitted_phrases):
+            status = "not_submitted"
+        elif any(phrase in lower for phrase in submitted_phrases):
+            status = "submitted"
+        else:
+            status = "unknown"
+        return (body[:24000] if body else None), status
+    except Exception:
+        return None, "unknown"
+    finally:
+        detail_page.close()
 
 
 def scan_course(page, course_id: str) -> dict:
@@ -95,8 +126,16 @@ def scan_course(page, course_id: str) -> dict:
             })
 
         if activity_type == "assignment":
-            upsert_assignment(course_id, key, title, url)
-            assignments.append({"title": title, "url": url, "key": key})
+            instructions_text, submission_status = _inspect_assignment(page.context, url)
+            upsert_assignment(
+                course_id, key, title, url,
+                instructions_text=instructions_text,
+                submission_status=submission_status,
+            )
+            assignments.append({
+                "title": title, "url": url, "key": key,
+                "submission_status": submission_status,
+            })
 
     # An empty result may mean a portal/layout/loading problem, not that all
     # course activities were deleted. Fail safely and preserve the prior snapshot.
@@ -151,6 +190,14 @@ def run_sync() -> list[dict]:
                 context.close()
                 browser.close()
         finish_sync_run(run_id)
+        try:
+            generated = generate_pending_drafts()
+            if generated:
+                print("\nAssignment drafts generated for review:")
+                for item in generated:
+                    print(f"  [{item['id']}] {item['title']} -> {item['path']}")
+        except Exception as error:
+            print(f"\nWarning: assignment draft generation failed: {error}")
         return results
     except Exception as error:
         finish_sync_run(run_id, str(error)[:1000])
@@ -174,6 +221,8 @@ def print_report(results: list[dict]) -> None:
             print(f"    {change['url']}")
         if result["assignments"]:
             print(f"  Assignment activities found: {len(result['assignments'])}")
+            for assignment in result["assignments"]:
+                print(f"    - {assignment['title']} [submission: {assignment['submission_status']}]")
 
-    print("\nNote: this scan records assignment links only. Submission-state detection and")
-    print("automatic draft generation are separate steps; nothing is submitted to the portal.")
+    print("\nDraft generation is limited to assignments explicitly marked not_submitted")
+    print("with captured instructions. Nothing is submitted to the portal.")

@@ -15,14 +15,14 @@ PORTAL_STATE_FILE = DATA_DIR / "portal-state.json"
 DATABASE_PATH = DATA_DIR / "assistant.db"
 
 # Course IDs confirmed during portal inspection.
-COURSE_IDS = {
+COURSE_IDS = (
     "1325",  # Cloud computing
     "1327",  # Embedded systems
     "1323",  # Computer security
     "1328",  # Graduation project 1
     "1324",  # Digital image processing
     "1326",  # Distributed systems
-}
+)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL")

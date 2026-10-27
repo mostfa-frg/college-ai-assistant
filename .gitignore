@@ -6,14 +6,8 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Local state, credentials, and generated course data
-/data/portal-state.json
-/data/assistant.db
-/data/materials/
-/data/processed/
-/data/summaries/
-
-/data/solutions/
+# All local Moodle content, sessions, databases, generated drafts, and indexes
+/data/
 
 # Local Windows packaging output
 /build/

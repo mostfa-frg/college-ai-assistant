@@ -25,5 +25,20 @@ COURSE_IDS = (
     "1326",  # Distributed systems
 )
 
+# Provider can be "groq" or "gemini". Existing Groq .env files keep working.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").strip().lower()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+
+if LLM_PROVIDER == "gemini":
+    LLM_API_KEY = GEMINI_API_KEY
+    LLM_MODEL = GEMINI_MODEL
+    LLM_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+elif LLM_PROVIDER == "groq":
+    LLM_API_KEY = GROQ_API_KEY
+    LLM_MODEL = GROQ_MODEL
+    LLM_BASE_URL = "https://api.groq.com/openai/v1"
+else:
+    raise ValueError("LLM_PROVIDER must be 'groq' or 'gemini'.")

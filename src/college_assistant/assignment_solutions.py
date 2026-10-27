@@ -167,17 +167,13 @@ def _split_instruction_chunks(instructions: str, max_chars: int = 4500) -> list[
 
 
 def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
-    """Group complete numbered tasks into small generation units with section context.
-
-    Smaller task batches limit output truncation. A section/scenario heading is copied
-    into each batch so independently generated answers retain their context.
-    """
-    text = instructions.replace("\r\n", "\n").replace(r"\n", "\n")
+    """Group complete numbered tasks into bounded chunks, repeating section context."""
+    text = instructions.replace("\\r\\n", "\\n").replace(r"\\n", "\\n")
     heading_re = re.compile(
-        r"^\s*(?:Part\s+[A-Z]\b.*|Scenario\s+\d+\b.*|Section\s+\d+\b.*)$",
+        r"^\\s*(?:Part\\s+[A-Z]\\b.*|Scenario\\s+\\d+\\b.*|Section\\s+\\d+\\b.*)$",
         re.IGNORECASE,
     )
-    question_re = re.compile(r"^\s*\d{1,3}[.)]\s+\S")
+    question_re = re.compile(r"^\\s*\\d{1,3}[.)]\\s+\\S")
     lines = text.splitlines()
     units: list[tuple[str, str]] = []
     heading = ""
@@ -186,7 +182,7 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
     def flush():
         nonlocal body
         if body:
-            units.append((heading, "\n".join(body).strip()))
+            units.append((heading, "\\n".join(body).strip()))
             body = []
 
     for line in lines:
@@ -199,46 +195,65 @@ def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
         elif body:
             body.append(line.rstrip())
         elif line.strip():
-            # Preserve introductory text before the first numbered task.
             body = [line.rstrip()]
-
     flush()
+
     if not units:
         return _split_instruction_chunks(text, max_chars=max_chars)
 
     chunks: list[str] = []
-    current_heading = ""
-    current_body = ""
-    for unit_heading, unit_body in units:
-        prefix = unit_heading or current_heading
-        candidate = "\n".join(part for part in (prefix, current_body, unit_body) if part).strip()
-        if current_body and len(candidate) > max_chars:
-            chunks.append("\n".join(part for part in (current_heading, current_body) if part).strip())
-            current_body = unit_body
-            current_heading = prefix
-        else:
-            current_body = "\n\n".join(part for part in (current_body, unit_body) if part).strip()
-            if prefix:
-                current_heading = prefix
+    active_heading = ""
+    active_tasks: list[str] = []
 
-        if len(current_body) + len(current_heading) + 1 > max_chars:
-            # A single unusually long task must be split at line boundaries.
-            long_text = current_body
-            current_body = ""
-            lines_for_task = long_text.splitlines()
+    def render(section_heading: str, tasks: list[str]) -> str:
+        return "\\n\\n".join(part for part in (section_heading, *tasks) if part).strip()
+
+    def flush_chunk():
+        nonlocal active_tasks
+        if active_tasks:
+            chunks.append(render(active_heading, active_tasks))
+            active_tasks = []
+
+    for unit_heading, unit_body in units:
+        if unit_heading != active_heading and active_tasks:
+            flush_chunk()
+        active_heading = unit_heading or active_heading
+
+        # Split a single oversized task only when necessary, retaining its heading.
+        limit = max(1, max_chars - len(active_heading) - 2)
+        pieces: list[str] = []
+        if len(unit_body) <= limit:
+            pieces = [unit_body]
+        else:
             piece = ""
-            for task_line in lines_for_task:
-                if piece and len(piece) + len(task_line) + 1 > max_chars:
-                    chunks.append("\n".join(part for part in (current_heading, piece) if part).strip())
+            for task_line in unit_body.splitlines():
+                while len(task_line) > limit:
+                    if piece:
+                        pieces.append(piece)
+                        piece = ""
+                    pieces.append(task_line[:limit])
+                    task_line = task_line[limit:]
+                if piece and len(piece) + len(task_line) + 1 > limit:
+                    pieces.append(piece)
                     piece = task_line
                 else:
-                    piece = (piece + "\n" + task_line).strip()
-            current_body = piece
+                    piece = (piece + "\\n" + task_line).strip()
+            if piece:
+                pieces.append(piece)
 
-    if current_body:
-        chunks.append("\n".join(part for part in (current_heading, current_body) if part).strip())
+        for piece in pieces:
+            candidate = render(active_heading, [*active_tasks, piece])
+            if active_tasks and len(candidate) > max_chars:
+                flush_chunk()
+            active_tasks.append(piece)
+            # A single line may itself be longer than the requested bound only if
+            # the section heading alone leaves no room, which is handled above.
+            if len(render(active_heading, active_tasks)) > max_chars:
+                flush_chunk()
+                active_tasks.append(piece)
+
+    flush_chunk()
     return [chunk for chunk in chunks if chunk]
-
 
 def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
     """Retrieve evidence per numbered task to reduce query dilution."""

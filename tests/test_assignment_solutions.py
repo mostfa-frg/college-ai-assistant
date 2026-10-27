@@ -128,7 +128,7 @@ def test_regeneration_allows_recovery_when_approved_file_is_missing(monkeypatch,
     monkeypatch.setattr(repositories, "save_solution_draft", lambda assignment_id, path: None)
 
     result = regenerate_assignment_draft(assignment_id=9)
-    assert result["path"].endswith("_v2.md")
+    assert result["path"].endswith("_v2.docx")
     assert Path(result["path"]).is_file()
     assert Path(result["word_path"]).is_file()
 
@@ -138,7 +138,7 @@ def test_regeneration_still_refuses_when_approved_file_exists(monkeypatch, tmp_p
     from college_assistant.assignment_solutions import regenerate_assignment_draft
     import pytest
 
-    approved = tmp_path / "approved.md"
+    approved = tmp_path / "approved.docx"
     approved.write_text("approved content", encoding="utf-8")
     monkeypatch.setattr(repositories, "get_assignment", lambda assignment_id: {
         "id": assignment_id,
@@ -150,3 +150,14 @@ def test_regeneration_still_refuses_when_approved_file_exists(monkeypatch, tmp_p
     })
     with pytest.raises(ValueError, match="approved solution file"):
         regenerate_assignment_draft(10)
+
+
+
+def test_instruction_chunks_stay_within_limit_and_preserve_text():
+    from college_assistant.assignment_solutions import _split_instruction_chunks
+
+    source = ("\n\n".join(["A" * 2000, "B" * 2000, "C" * 2000]))
+    chunks = _split_instruction_chunks(source, max_chars=2500)
+    assert len(chunks) >= 3
+    assert all(len(chunk) <= 2500 for chunk in chunks)
+    assert "".join(chunks).replace("\n\n", "") == "A" * 2000 + "B" * 2000 + "C" * 2000

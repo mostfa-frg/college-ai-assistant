@@ -20,7 +20,7 @@ _ALLOWED_SUFFIXES = {".pdf", ".txt", ".md"}
 
 
 def _safe_filename(value: str) -> str:
-    value = re.sub(r'[<>:"/\\\\|?*\\x00-\\x1f]', "_", value).strip(" .")
+    value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", value).strip(" .")
     return value[:160] or "course_material"
 
 

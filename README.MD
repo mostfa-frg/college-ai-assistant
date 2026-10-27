@@ -46,6 +46,27 @@ python -m playwright install chromium
 
 Create a local `.env` from `.env.example` only if you plan to use AI features. Never commit the real `.env`.
 
+
+## AI provider configuration
+
+Assignment generation supports Groq and Google's Gemini API through the OpenAI-compatible client. Choose one provider in your local, untracked `.env` file:
+
+Groq (default):
+```dotenv
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=openai/gpt-oss-120b
+```
+
+Gemini:
+```dotenv
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.1-flash-lite
+```
+
+Create a Gemini API key in Google AI Studio. The code switches provider/model from configuration; no API key belongs in Git. Free-tier quotas vary by model, project, and account, so check the provider's current limits. Gemini's OpenAI-compatible API is documented at https://ai.google.dev/gemini-api/docs/openai.
+
 ## Portal login
 
 Run:

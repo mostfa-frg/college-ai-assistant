@@ -166,7 +166,7 @@ def _split_instruction_chunks(instructions: str, max_chars: int = 4500) -> list[
 
 
 
-def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
+def _split_task_chunks(instructions: str, max_chars: int = 1100) -> list[str]:
     """Group complete numbered tasks into bounded chunks, repeating section context."""
     text = instructions.replace("\r\n", "\n").replace(r"\n", "\n")
     heading_re = re.compile(
@@ -288,7 +288,7 @@ def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
 
 def _generate_solution_content(client, assignment: dict, instructions: str) -> str:
     """Generate bounded chunks separately and combine their answers for Word export."""
-    chunks = _split_task_chunks(instructions)
+    chunks = _split_task_chunks(instructions, max_chars=1100)
     answers = []
     for index, chunk in enumerate(chunks, start=1):
         evidence = _retrieve_chunk_evidence(
@@ -315,6 +315,9 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                     f"Course ID: {assignment['course_id']}\n"
                     f"Source chunk {index} of {len(chunks)}. It may contain only part of the full assignment.\n"
                     "Answer every actual task in this chunk, preserving its section and numbering. "
+                    "Keep answers concise but complete: essays should normally be 250-400 words, "
+                    "MCQs and True/False items 1-3 sentences, and scenario subquestions focused. "
+                    "Do not repeat the question at length or add unrelated background. "
                     "Use the retrieved course evidence below, cite sources inline, and clearly flag "
                     "unsupported course-specific details instead of guessing. If the chunk contains "
                     "no task, return exactly NO_TASKS_IN_THIS_CHUNK. Do not claim submission.\n\n"

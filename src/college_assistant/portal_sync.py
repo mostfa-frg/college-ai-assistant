@@ -38,6 +38,56 @@ def _activity_type(url: str) -> str:
     return "activity"
 
 
+def _extract_assignment_instructions(detail_page) -> str | None:
+    """Extract the assignment description, not the whole Moodle page chrome.
+
+    Attachment names are recorded for diagnosis, but file contents are not parsed
+    yet. If attachments exist, downstream draft generation must stop rather than
+    pretend it has read them.
+    """
+    description_parts: list[str] = []
+    for selector in ("#intro", ".activity-description", ".assignintro"):
+        locator = detail_page.locator(selector)
+        for index in range(locator.count()):
+            try:
+                text = " ".join(locator.nth(index).inner_text(timeout=3000).split())
+            except Exception:
+                continue
+            if text and text not in description_parts:
+                description_parts.append(text)
+
+    attachment_names: list[str] = []
+    for selector in (
+        ".assignsubmission_file a",
+        ".attachments a",
+        "a[href*='/pluginfile.php/']",
+    ):
+        locator = detail_page.locator(selector)
+        for index in range(locator.count()):
+            link = locator.nth(index)
+            try:
+                name = " ".join(link.inner_text(timeout=2000).split())
+                href = link.get_attribute("href") or ""
+            except Exception:
+                continue
+            if name and href and name not in attachment_names:
+                attachment_names.append(name)
+
+    if not description_parts and not attachment_names:
+        return "ASSIGNMENT_DESCRIPTION_NOT_FOUND: Moodle page loaded, but no readable assignment description was found."
+
+    sections = []
+    if description_parts:
+        sections.append("ASSIGNMENT DESCRIPTION:\\n" + "\\n\\n".join(description_parts))
+    if attachment_names:
+        sections.append(
+            "ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED: The following attached files "
+            "were listed on Moodle, but their contents have not been read: "
+            + ", ".join(attachment_names)
+        )
+    return "\\n\\n".join(sections)[:24000]
+
+
 def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
     """Read assignment instructions and classify submission state conservatively."""
     detail_page = context.new_page()
@@ -61,7 +111,7 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
             status = "submitted"
         else:
             status = "unknown"
-        return (body[:24000] if body else None), status
+        return _extract_assignment_instructions(detail_page), status
     except Exception:
         return None, "unknown"
     finally:

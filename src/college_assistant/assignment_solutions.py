@@ -290,7 +290,7 @@ def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
 
 
 def _create_completion_with_rate_limit_retry(client, *, model, messages, max_completion_tokens):
-    """Retry transient Groq rate limits while reducing the request budget if needed."""
+    """Retry transient provider rate limits while reducing the request budget if needed."""
     token_budget = max_completion_tokens
     last_error = None
     for attempt in range(4):
@@ -425,11 +425,30 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
             raise ValueError(f"The model reported insufficient source in chunk {index}/{len(chunks)}.")
         if content.strip() != "NO_TASKS_IN_THIS_CHUNK":
             answers.append(_sanitize_citations(content.strip(), evidence))
-    combined = "\n\n".join(answers).strip()
+    combined = _deduplicate_repeated_section_headings("\n\n".join(answers).strip())
     if not combined or _is_placeholder_draft(combined):
         raise ValueError("The model returned empty or template-like content; no solution was saved.")
     return combined
 
+
+
+def _deduplicate_repeated_section_headings(content: str) -> str:
+    """Remove repeated section headings emitted independently for each model chunk."""
+    seen = set()
+    output = []
+    heading_re = re.compile(
+        r"^\s{0,3}#{1,3}\s+((?:Part\s+[A-Z]\b|Scenario\s+\d+\b|Section\s+\d+\b).*)$",
+        re.IGNORECASE,
+    )
+    for line in content.splitlines():
+        match = heading_re.match(line)
+        if match:
+            key = re.sub(r"\s+", " ", match.group(1).strip()).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+        output.append(line)
+    return "\n".join(output).strip()
 
 
 def _sanitize_citations(content: str, evidence) -> str:

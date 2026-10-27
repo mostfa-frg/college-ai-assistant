@@ -98,6 +98,14 @@ def scan_course(page, course_id: str) -> dict:
             upsert_assignment(course_id, key, title, url)
             assignments.append({"title": title, "url": url, "key": key})
 
+    # An empty result may mean a portal/layout/loading problem, not that all
+    # course activities were deleted. Fail safely and preserve the prior snapshot.
+    if not seen:
+        raise RuntimeError(
+            f"No activities were detected in course {course_id}; "
+            "the previous snapshot was left unchanged."
+        )
+
     removed = mark_missing_activities_inactive(course_id, seen)
     for item in removed:
         if previous_scan is not None:

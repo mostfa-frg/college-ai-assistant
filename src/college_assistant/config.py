@@ -32,6 +32,10 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
+# Optional Tavily web search used only when local course retrieval finds no evidence.
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+WEB_RESEARCH_ENABLED = os.getenv("WEB_RESEARCH_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+
 if LLM_PROVIDER == "gemini":
     LLM_API_KEY = GEMINI_API_KEY
     LLM_MODEL = GEMINI_MODEL

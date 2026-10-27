@@ -56,7 +56,7 @@ def _extract_pdf_text(detail_page, href: str) -> str | None:
             text = "\\n\\n".join(page.get_text("text") for page in document).strip()
         finally:
             document.close()
-        return text if len(text) >= 100 else "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED"
+        return text if len(text) >= 40 else "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED"
     except Exception:
         return None
 

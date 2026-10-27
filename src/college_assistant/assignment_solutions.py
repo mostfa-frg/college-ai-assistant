@@ -117,3 +117,72 @@ def generate_pending_drafts() -> list[dict]:
             print(f"  - {title}")
         print("Open the assignment in Moodle and confirm the full task text is available.")
     return generated
+
+
+
+def regenerate_assignment_draft(assignment_id: int) -> dict:
+    """Create a new versioned review draft without overwriting an existing file."""
+    from college_assistant.storage.repositories import get_assignment
+
+    assignment = get_assignment(assignment_id)
+    if not assignment:
+        raise ValueError(f"Assignment ID {assignment_id} was not found.")
+    if assignment["submission_status"] != "not_submitted":
+        raise ValueError(
+            "Regeneration is allowed only when Moodle explicitly reports not_submitted."
+        )
+    if assignment["solution_status"] == "approved":
+        raise ValueError("This assignment already has an approved solution.")
+    instructions = (assignment.get("instructions_text") or "").strip()
+    if len(instructions) < 30:
+        raise ValueError("Stored assignment instructions are missing or too short.")
+    blocked_markers = (
+        "ASSIGNMENT_DESCRIPTION_NOT_FOUND",
+        "ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED",
+        "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED",
+    )
+    if any(marker in instructions for marker in blocked_markers):
+        raise ValueError("Stored assignment source is incomplete or requires OCR.")
+    if not GROQ_API_KEY or not GROQ_MODEL:
+        raise ValueError("GROQ_API_KEY or GROQ_MODEL is not configured in the local .env.")
+
+    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        temperature=0.2,
+        max_completion_tokens=6000,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content":
+                f"Assignment title: {assignment['title']}\n"
+                f"Course ID: {assignment['course_id']}\n"
+                f"Portal URL: {assignment['url']}\n\n"
+                f"<assignment_instructions>\n{instructions[:24000]}\n"
+                "</assignment_instructions>\n\n"
+                "Answer only the actual tasks in the source. Preserve numbering and do not "
+                "invent questions, sections, or counts. If the actual tasks are absent, return "
+                "only INSUFFICIENT_ASSIGNMENT_CONTENT. Do not submit anything."
+            },
+        ],
+    )
+    content = response.choices[0].message.content
+    if not content or not content.strip() or _is_placeholder_draft(content):
+        raise ValueError(
+            "The model returned empty or template-like content; the existing draft is unchanged."
+        )
+
+    SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    stem = f"assignment_{assignment_id}_{_safe_stem(assignment['title'])}_draft"
+    version = 2
+    while (SOLUTIONS_DIR / f"{stem}_v{version}.md").exists():
+        version += 1
+    path = SOLUTIONS_DIR / f"{stem}_v{version}.md"
+    path.write_text(
+        f"# Draft solution (version {version}): {assignment['title']}\n\n"
+        "> Status: Pending your review. This file has not been submitted.\n\n"
+        f"**Course ID:** {assignment['course_id']}  \n"
+        f"**Assignment:** {assignment['url']}\n\n{content.strip()}\n",
+        encoding="utf-8",
+    )
+    save_solution_draft(assignment_id, path)
+    return {"id": assignment_id, "title": assignment["title"], "path": str(path), "version": version}

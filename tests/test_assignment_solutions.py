@@ -284,3 +284,30 @@ def test_word_export_does_not_use_auto_numbering_for_question_lines(tmp_path):
         "1. First question", "2. Second question", "1. First MCQ"
     ]
     assert all(p.style.name != "List Number" for p in numbered)
+
+
+
+def test_deduplicates_section_headings_repeated_by_chunked_generation():
+    from college_assistant.assignment_solutions import _deduplicate_repeated_section_headings
+
+    draft = (
+        "## Part A - Essay Questions\n\n1. First answer.\n\n"
+        "## Part A - Essay Questions\n\n2. Second answer.\n\n"
+        "## Part B - MCQs\n\n1. First MCQ.\n"
+    )
+    normalized = _deduplicate_repeated_section_headings(draft)
+
+    assert normalized.count("## Part A - Essay Questions") == 1
+    assert normalized.count("## Part B - MCQs") == 1
+    assert "1. First answer." in normalized
+    assert "2. Second answer." in normalized
+
+
+def test_web_citation_keeps_source_title_and_url_after_sanitizing():
+    from types import SimpleNamespace
+    from college_assistant.assignment_solutions import _sanitize_citations
+
+    evidence = [SimpleNamespace(source="Official Linux Documentation", location="https://docs.example.test")]
+    answer = "[Source: Official Linux Documentation](https://docs.example.test)"
+
+    assert _sanitize_citations(answer, evidence) == answer

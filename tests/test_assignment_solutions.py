@@ -195,3 +195,20 @@ def test_prompt_requires_explicit_mcq_and_true_false_answers():
     assert "give the best answer explicitly" in prompt
     assert "begin the answer with exactly **true** or **false**" in prompt
     assert "never use missing evidence as a reason to leave a solvable question unanswered" in prompt
+
+
+def test_sanitizes_citations_that_do_not_match_retrieved_files():
+    from types import SimpleNamespace
+    from college_assistant.assignment_solutions import _sanitize_citations
+
+    evidence = [SimpleNamespace(source="lecture_02.pdf")]
+    answer = (
+        "SSH is used for command-line access [Source: lecture_02.pdf, page 4]. "
+        "This citation is fake [Source: course_material_evidence]."
+    )
+
+    sanitized = _sanitize_citations(answer, evidence)
+
+    assert "[Source: lecture_02.pdf, page 4]" in sanitized
+    assert "[Source: course_material_evidence]" not in sanitized
+    assert "no matching course source retrieved" in sanitized

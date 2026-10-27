@@ -4,13 +4,11 @@ Set-Location $Root
 
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python -m pip install -e .
+python -m pytest
 
-$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $Root ".playwright-browsers"
-python -m playwright install chromium
-
-python -m PyInstaller --noconfirm --clean --onedir --console --name CollegeAIAssistant --paths src --collect-all playwright --collect-all pymupdf --collect-all docx --collect-all pptx src/college_assistant/main.py
-Copy-Item -Recurse -Force ".playwright-browsers" "dist/CollegeAIAssistant/_playwright-browsers"
+python -m PyInstaller --noconfirm --clean --onedir --console --name CollegeAIAssistant --paths src --collect-all playwright --collect-all pymupdf --collect-submodules docx --collect-submodules pptx src/college_assistant/main.py
 @'
 @echo off
 cd /d "%~dp0"

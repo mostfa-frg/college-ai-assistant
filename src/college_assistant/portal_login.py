@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from college_assistant.browser_setup import ensure_chromium_installed
 from college_assistant.config import BASE_URL, DATA_DIR, PORTAL_STATE_FILE
 
 
@@ -11,6 +12,7 @@ def save_portal_login() -> None:
     print("A browser will open for Moodle sign-in.")
     print("Use the official college portal. Verify any certificate warning with the college.")
     with sync_playwright() as playwright:
+        ensure_chromium_installed(playwright)
         browser = playwright.chromium.launch(headless=False)
         context = browser.new_context(ignore_https_errors=True)
         page = context.new_page()

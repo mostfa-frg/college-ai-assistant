@@ -19,7 +19,9 @@ Approval is only a local status; it does not submit anything. Existing command-l
 
 ## Shareable Windows build
 
-A Windows packaging workflow builds a portable folder containing the executable and a Chromium browser for Playwright. To build it yourself on Windows, run PowerShell from the repository folder:
+A Windows packaging workflow builds a portable folder containing the executable and Playwright runtime, but **does not bundle Chromium**. This keeps the initial ZIP smaller. The first time a user chooses Moodle login or sync, the app downloads Chromium once into that Windows user's `%LOCALAPPDATA%\CollegeAIAssistant\ms-playwright\` folder. That first setup requires an internet connection and may take a few minutes; subsequent launches reuse the downloaded browser.
+
+To build it yourself on Windows, run PowerShell from the repository folder:
 
 ```powershell
 .\build_windows.ps1
@@ -32,8 +34,9 @@ The first launch creates user-specific files under `%LOCALAPPDATA%\CollegeAIAssi
 - `data\materials\`, `data\processed\`, `data\summaries\`, and `data\solutions\`: local course content and drafts.
 - `data\portal-state.json`: local Moodle browser session.
 - `.env`: that user's AI provider settings and API keys.
+- `ms-playwright\`: the Chromium browser downloaded on first login/sync.
 
-Each friend must sign in to their own Moodle account and configure their own AI API key. Do not share `.env` or `portal-state.json`. The portable program folder contains the executable and browser, not your coursework database or login session.
+Each friend must sign in to their own Moodle account and configure their own AI API key. Do not share `.env` or `portal-state.json`. The portable program folder contains the executable and Playwright runtime, not your coursework database or login session.
 
 ## AI provider configuration
 
@@ -78,7 +81,7 @@ Choose menu option 6 to open the browser and save your local Moodle session. The
 Python 3.10+ is required for development:
 
 ```powershell
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python -m pip install -e .
 python -m playwright install chromium
 python -m pytest

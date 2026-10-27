@@ -12,9 +12,8 @@ if FROZEN:
     USER_APP_DIR = LOCAL_APP_DATA / "CollegeAIAssistant"
     DATA_DIR = USER_APP_DIR / "data"
     ENV_FILE = USER_APP_DIR / ".env"
-    BROWSER_DIR = APP_DIR / "_playwright-browsers"
-    if BROWSER_DIR.is_dir():
-        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(BROWSER_DIR))
+    BROWSER_DIR = USER_APP_DIR / "ms-playwright"
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(BROWSER_DIR)
 else:
     PROJECT_ROOT = APP_DIR
     DATA_DIR = PROJECT_ROOT / "data"

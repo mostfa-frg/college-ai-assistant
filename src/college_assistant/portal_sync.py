@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 from playwright.sync_api import sync_playwright
 
+from college_assistant.browser_setup import ensure_chromium_installed
 from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
 from college_assistant.assignment_solutions import generate_pending_drafts
 from college_assistant.materials_sync import sync_course_materials
@@ -262,6 +263,7 @@ def run_sync() -> list[dict]:
     try:
         results = []
         with sync_playwright() as playwright:
+            ensure_chromium_installed(playwright)
             browser = playwright.chromium.launch(headless=True)
             context = browser.new_context(
                 storage_state=str(PORTAL_STATE_FILE),

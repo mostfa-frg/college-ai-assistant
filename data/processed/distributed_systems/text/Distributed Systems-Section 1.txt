@@ -1,0 +1,143 @@
+--- Page 1 ---
+1  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+CS 432 Distributed Systems 
+Lab (1)  
+  
+Section Content:  
+  
+What is a Distributed System? 
+ Definition 1: A software system in which components located on networked 
+computers communicate and coordinate their actions only by passing messages. 
+ Definition 2: A collection of independent computers that appears to its users as a 
+single coherent system. 
+ Definition 3: A multi-machine system designed to process massive data. 
+ 
+Introduction to Distributed Systems
+
+--- Page 2 ---
+2  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+Why do we need Distributed Systems? 
+Because it is to solve these two problems 
+1. Performance Limitations: A single machine is slow when handling huge tasks. 
+2. Storage Capacity Limitations: A single machine can't hold all the data. 
+Two basic core types of distributed systems 
+1. Distributed Computing Framework: To solve the problem of slow calculation. 
+2. Distributed Storage Engine: To solve the problem of storing massive data. 
+Key Characteristics of a Distributed System 
+1. Scalability: The ability to grow as the size of the workload increases is an 
+essential feature of distributed systems, accomplished by adding additional 
+processing units or nodes to the network as needed. 
+2. Concurrency: Distributed system components run simultaneously. They’re also 
+characterized by the lack of a “global clock,” when tasks occur out of sequence 
+and at different rates. 
+3. Availability and fault tolerance: If one node fails, the remaining nodes can 
+continue to operate without disrupting the overall computation. 
+4. Heterogeneity: In most distributed systems, the nodes and components are often 
+asynchronous, with different hardware, middleware, software and operating 
+systems.  
+5. Replication: Distributed systems enable shared information and messaging, 
+ensuring consistency between redundant resources, such as software or hardware 
+components, improving fault tolerance, reliability and accessibility. 
+6. Transparency: The end user sees a distributed system as a single computational 
+unit rather than as its underlying parts, allowing users to interact with a single 
+logical device rather than being concerned with the system’s architecture.
+
+--- Page 3 ---
+3  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+Why distributed systems is better than centralized systems? 
+ 
+There are three reasons 
+1. Low latency: Distributed systems have low latency because of high 
+geographical spread, hence leading to less time to get a response. 
+2. Scalability: Distributed systems are highly scalable as they can be easily 
+expanded by adding new nodes to the network. 
+3. Better Performance: By using the resources of numerous computers to tackle 
+the workload, distributed systems can perform at higher levels than centralized 
+systems. 
+Distributed Systems Layout 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Distributed system? 
+1. Autonomous systems 
+2. Computer network 
+3. Distributed software 
+Important consequences:    
+ Concurrency 
+  No global clock 
+  Independent failure
+
+--- Page 4 ---
+4  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+Middleware Architecture 
+Middleware acts as a bridge. It refers to software that sits between different software 
+applications or systems to facilitate communication, data management, and 
+interaction between them. It provides a set of services and functionalities to higher-
+level applications. 
+A software layer that masks the heterogeneity of systems 
+Advantages & disadvantages distributed systems 
+Advantages 
+ interaction 
+ co-operation  
+ sharing of resources 
+ reduced costs 
+ improved availability and performance 
+ Scalability   
+ fault tolerance 
+Disadvantages  
+ Complexity: Typically, distributed systems are more complex than centralized 
+systems 
+ Security: More susceptible to external attack 
+ Manageability: More effort required for system management 
+ Unpredictability: Unpredictable responses depending on the system 
+organization and network load
+
+--- Page 5 ---
+5  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+Typical distributed systems Examples 
+1. The Internet 
+A global network of interconnected computers which communicate through IP 
+Protocols. 
+ IP Address: Unique address that allows devices to connect on a network. 
+ Protocol: A set of rules providing specific services for the OS (e.g., HTTP for 
+web content). 
+Characteristics of the Internet: 
+1. Very Large & Heterogeneous: Combines vast numbers of different 
+hardware and software types. 
+2. Multiple Services Enabled: Supports email, file transfer, multimedia 
+communications, WWW. 
+3. Open-Ended: Has no boundaries; continuously expandable. 
+2. Intranet (Intra = Within) 
+A separately administered network with boundaries. It is a private network used 
+within companies, schools, or government agencies to facilitate internal 
+communication and resource sharing among employees or members. 
+ Connectivity: Connected to the Internet via Routers. 
+ Security: In/Out communications are protected by a Firewall. 
+ Examples of Organizations Using Intranets: French University in Egypt, 
+Egypt Post, Egypt's Ministry of Petroleum Intranet. 
+3. Extranet (Extra = Outside/Extended) 
+An organization's intranet that is extended to authorized users outside the 
+organization. 
+4. Facebook (Meta) 
+Facebook connects billions of users worldwide and relies on a set of custom-built 
+distributed systems to store and serve the social graph, photos, and messages at 
+massive scale. 
+5. Amazon 
+Amazon uses distributed systems both to run its e-commerce platform and to offer 
+distributed computing as a service through AWS (Amazon Web Services).
+
+--- Page 6 ---
+6  
+Eng. Mostafa Eng. Omnia Eng. Sohaila  
+6. Google 
+Google pioneered several of the foundational technologies that modern distributed 
+systems are built on, in order to index and search the entire web at massive scale.

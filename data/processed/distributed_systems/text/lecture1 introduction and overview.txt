@@ -1,0 +1,414 @@
+--- Page 1 ---
+Lecture 1: Course Introduction
+& Overview
+Course Orientation • Intro to Distributed Systems • Real‐world Examples
+Course: Distributed Systems
+
+--- Page 2 ---
+Part 1: Course Orientation
+Objectives, Assessments, and Policies
+
+--- Page 3 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Introduces the definition of distributed systems, 
+course objectives, and real‐world examples (Google, 
+Facebook, Cloud Computing). It explores why 
+modern applications use multiple computers 
+instead of one powerful machine.
+Understand the 
+fundamental 
+concepts and 
+real‐world 
+applications of 
+distributed 
+systems.
+Lecture 1: 
+Course 
+Introduction 
+and Overview
+
+--- Page 4 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Covers the definition of distributed computing and 
+its main components: nodes, processes, 
+communication links, and resource sharing. 
+Introduces key concepts like transparency, 
+Availability, and scalability.
+Identify the 
+components 
+and key design 
+principles of 
+distributed 
+systems.
+Lecture 2: Basic 
+Concepts of 
+Distributed 
+Computing
+Transparency → Can it hide its complexity from users?
+Scalability → Can the system grow with more users?
+Consistency → All servers show the same data.
+Fault Tolerance → Can it keep working when failures occur?
+Availability → The system always responds.
+
+--- Page 5 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Introduce the basic concepts and simple programs 
+to understand how to create a client‐server socket .
+How the nodes 
+can be 
+communicated 
+with each other 
+.
+Lecture3: 
+socket
+
+--- Page 6 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Introduce the basic concepts and simple programs 
+to understand how to create‐ execute threads  
+how the 
+multitask in 
+application can 
+be executed at 
+the same time.
+Lectures 4: 
+multi‐threads
+
+--- Page 7 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Details the main goals: 
+making resources accessible,
+ensuring distribution transparency (access, 
+location, failure, etc.), 
+maintaining openness, 
+and achieving scalability. 
+Discusses the trade‐offs between them.
+the primary 
+goals and 
+design trade‐
+offs in building 
+distributed 
+systems.
+Lecture 5: Goals 
+of Distributed 
+Systems
+
+--- Page 8 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Explains core characteristics (concurrent execution, 
+lack of a global clock, independent failures) and 
+major design challenges including heterogeneity, 
+security, scalability, fault tolerance, and quality of 
+service.
+Recognize the 
+characteristics 
+and 
+fundamental 
+design 
+challenges of 
+distributed 
+systems.
+Lecture 6: 
+Characteristics 
+and Design 
+Issues
+
+--- Page 9 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Categorizes distributed systems into three main 
+types: Distributed Computing Systems (Cluster, 
+Grid), Distributed Information Systems (Transaction 
+processing, Enterprise systems), and Distributed 
+Pervasive Systems (IoT, Smart homes).
+differentiate 
+between the 
+various types of 
+distributed 
+computing 
+models.
+Lecture 7: Types 
+of Distributed 
+Systems
+
+--- Page 10 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Focuses on Client‐Server architecture. It breaks 
+down Two‐tier, Three‐tier, and Multi‐tier (N‐tier) 
+architectures, discussing their advantages, 
+limitations, and examples like banking and 
+university systems.
+Understand 
+centralized 
+architectural 
+models and 
+their physical 
+tiered layouts.
+Lecture 8: 
+Distributed 
+System 
+Architectures 
+(Part I)
+
+--- Page 11 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Explores Peer‐to‐Peer (P2P) architectures 
+(Centralized, Decentralized, Hybrid), Service‐
+Oriented Architecture (SOA), and Microservices. 
+Uses BitTorrent, Skype, and Netflix as real‐world 
+case studies.
+Analyze 
+decentralized 
+architectures 
+and modern 
+service‐
+oriented 
+approaches.
+Lecture 9: 
+Distributed 
+System 
+Architectures 
+(Part II)
+
+--- Page 12 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Covers IPC methods (Message Passing, Shared 
+Memory), Sockets and Ports, Synchronous vs. 
+Asynchronous communication, Remote Procedure 
+Call (RPC), Remote Method Invocation (RMI), and 
+the role of Middleware.
+Explain the 
+mechanisms 
+and paradigms 
+used for 
+interprocess
+communication 
+(IPC).
+Lecture 10: 
+Communication 
+in Distributed 
+Systems
+
+--- Page 13 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Explains physical clocks (UTC, Clock Drift, Skew) and 
+why they are unreliable. Introduces Logical Clocks 
+(Lamport and Vector clocks) and the "Happened‐
+Before" relationship to maintain causality.
+Solve the 
+problem of 
+event ordering 
+and time 
+coordination 
+without a global 
+clock.
+Lecture 11: 
+Synchronization 
+in Distributed 
+Systems
+
+--- Page 14 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Introduces ACID properties, interleaving, and 
+concurrency problems (Lost Update, Dirty Read, 
+Inconsistent Retrieval). Covers control mechanisms 
+like Mutual Exclusion, Locks, Two‐Phase Locking 
+(2PL), and Deadlocks.
+Manage 
+concurrent 
+access to 
+shared data and 
+prevent 
+incorrect result.
+Lecture 12: 
+Distributed 
+Concurrency 
+Control
+ACID properties                                                                                          
+A = Atomicity (All or Nothing), C = Consistency (Data Stays 
+Correct), I = Isolation (No Interference), D = Durability 
+(Permanent Changes)
+
+--- Page 15 ---
+Course Objectives
+What you will achieve in this course
+4 / 26
+Description
+Objective
+lecture
+Covers algorithm characteristics, fault tolerance, 
+and failure types. 
+Details Election Algorithms (Bully and Ring) and 
+introduces modern consensus protocols like Paxos, 
+Raft, and Gossip.
+Understand 
+how distributed 
+nodes 
+coordinate, 
+agree, and elect 
+leaders without 
+a central 
+master.
+Lecture 13: 
+Distributed 
+Algorithms
+Consensus = All distributed nodes agree on the same value.
+Paxos = Reliable but complex consensus algorithm.
+Raft = Easier‐to‐understand consensus algorithm with a leader.
+
+--- Page 16 ---
+Course Objectives
+Tools Needed for Your Distributed Systems Labs
+4 / 26
+Based on the Java labs you've been discussing (Sockets, Threads, Lamport Clocks, Vector 
+Clocks, RPC, Leader Election, Distributed Locks, etc.), the minimum setup is:
+Required?
+Tool
+Yes
+JDK 17+
+Yes
+IntelliJ IDEA / NetBeans
+Yes
+Command Prompt / Terminal
+Yes
+Localhost Network
+For database labs
+MySQL
+Helpful
+MySQL Workbench
+(optional)Simulates multiple 
+machines on a single PC.
+Docker
+
+--- Page 17 ---
+Course Objectives
+Tools Needed for Your Distributed Systems Labs
+4 / 26
+With these tools, students can implement nearly all basic distributed systems experiments:
+•
+Client‐Server Communication
+•
+TCP Socket Programming
+•
+Message Passing
+•
+RPC Simulation
+•
+RMI
+•
+Lamport Clocks
+•
+Vector Clocks
+•
+Leader Election (Bully/Ring)
+•
+Mutual Exclusion
+•
+Distributed Lock Manager
+•
+Concurrency Control
+•
+Load Balancing
+•
+Microservices Simulation
+•
+Failure Detection
+
+--- Page 18 ---
+References & Resources
+What you need for this course
+8 / 26
+Primary Textbook
+• Coulouris, G., Dollimore, J., 
+Kindberg, T., & Blair, G. (2012).
+• Distributed Systems: Concepts and 
+Design (5th Ed.).
+• Addison‐Wesley.
+Secondary Textbook
+• Tanenbaum, A. S., & Van Steen, M. 
+(2007).
+• Distributed Systems: Principles and 
+Paradigms (2nd Ed.).
+• Pearson Prentice Hall.
+
+--- Page 19 ---
+Assessment Methods
+How your grade will be calculated
+6 / 26
+Description
+Weight
+Component
+Java programming (Sockets, RMI, Threads) to implement DS 
+concepts.
+10%
+Lab Assignments
+Covers Lectures 1‐7 (Architecture, IPC, Synchronization, Clocks).
+20%
+Midterm Exam
+Covers all Lectures from 1‐7 and from 8‐13 (Transactions, 
+Concurrency, Algorithms, Consensus).
+60%
+Final Exam
+Class activities, discussions, and distributed system design 
+project.
+10%
+Project / Participation

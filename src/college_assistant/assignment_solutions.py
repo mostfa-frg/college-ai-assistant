@@ -326,21 +326,19 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         evidence = _retrieve_chunk_evidence(
             str(assignment["course_id"]), assignment["title"], chunk
         )
-        evidence_origin = "course materials"
-        if not evidence:
+                if not evidence:
             # External research is only a fallback; the course's own material remains
             # the source of truth whenever local evidence is available.
             query_lines = [
                 line.strip() for line in chunk.splitlines()
                 if line.strip() and not re.match(
-                    r"^\s*(?:Part\s+[A-Z]\\b|Scenario\s+\\d+\\b|Section\s+\\d+\\b)",
+                    r"^\s*(?:Part\s+[A-Z]\b|Scenario\s+\d+\b|Section\s+\d+\b)",
                     line, re.IGNORECASE
                 )
             ]
             research_query = f"{assignment['title']} {assignment.get('course_id', '')} " + " ".join(query_lines)
             evidence = search_web_evidence(research_query[:500], max_results=3)
             if evidence:
-                evidence_origin = "external web research"
         if evidence:
             # Keep prompts comfortably below the model's 8k TPM budget.
             evidence_parts = []
@@ -353,7 +351,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                     evidence_parts.append(
                         f"[Source: {item.source}, {item.location}]\\n{item.text[:1000]}"
                     )
-            evidence_text = "\\n\\n".join(evidence_parts)
+            evidence_text = "\n\n".join(evidence_parts)
         else:
             evidence_text = (
                 "No matching course-material passages or external web results were found. "
@@ -370,7 +368,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                 "Keep answers concise but complete: essays should normally be 150-250 words, "
                 "MCQs and True/False items 1-3 sentences, and scenario subquestions focused. "
                 "Do not repeat the question at length or add unrelated background. "
-                "Use the retrieved evidence below, cite course sources as [Source: filename, page N] and web sources as [Source: exact title]. Keep web URLs from the evidence available for source attribution. Clearly flag "
+                "Use the retrieved evidence below, cite course sources as [Source: filename, page N] and web sources as [Source: exact title](URL), using the matching URL supplied in the evidence. Clearly flag "
                 "unsupported course-specific details instead of guessing. If the chunk contains "
                 "no task, return exactly NO_TASKS_IN_THIS_CHUNK. Do not claim submission.\n\n"
                 f"<assignment_instructions>\n{chunk}\n</assignment_instructions>\n\n"

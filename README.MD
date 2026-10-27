@@ -28,7 +28,7 @@ python -m college_assistant.main --approve-solution 3
 
 Approval creates a separate copy under `data/solutions/assignment_<ID>_approved.md` and records the approved state and path in SQLite. You can return to the approved solution at any time using `--show-solution ID` or open the saved Markdown file directly. The draft is retained separately. Do not approve until you have reviewed the solution.
 
-**Important:** the current portal sync discovers assignment links, but deep extraction of instructions, reliable submission-state detection, and automatic draft generation still need to be completed. The approval/retrieval commands are the persistent storage layer; they do not claim a draft exists before one is generated.
+**Important:** assignment-page extraction and submission detection use Moodle page text and conservative phrase matching. If the status cannot be recognized, it remains `unknown` and no draft is generated. Check the detected status before relying on it; portal wording may vary.
 
 ## Setup (Windows / PowerShell)
 

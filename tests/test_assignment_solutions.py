@@ -263,7 +263,7 @@ def test_task_chunks_preserve_all_numbered_questions_and_section_context():
     assert "Which method is best?" in joined
     assert "What should be checked first?" in joined
     assert "Explain the boot sequence." in joined
-    assert all(len(chunk) <= 2200 for chunk in chunks)
+    assert all(len(chunk) <= 180 for chunk in chunks)
 
 
 def test_word_export_does_not_use_auto_numbering_for_question_lines(tmp_path):

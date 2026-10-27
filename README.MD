@@ -1,61 +1,45 @@
 # College AI Assistant
 
-A local-first assistant for checking college portal updates when you choose to run it.
+A local-first assistant for checking Moodle course updates and preparing reviewable assignment drafts. It runs only when you launch it; it is not a background service and it never submits work to Moodle.
 
-## Current behavior
+## Use it without typing Python commands
 
-- Runs on demand; it does not run as a 24/7 service.
-- Checks the six configured Moodle courses and stores the last successful scan in SQLite.
-- The first scan establishes a baseline; later scans report detected activity-link changes.
-- Assignment links are recorded in SQLite.
-- Assignment drafts and approved copies are stored locally, with their paths and approval status recorded in SQLite.
-- Nothing is submitted to the college portal. Summaries are generated only when explicitly requested.
+The default launch now opens an interactive console menu. The menu can:
 
-## Assignment solutions and course-material RAG
+1. Sync the six configured Moodle courses and download available course materials.
+2. List assignments and the local status of drafts.
+3. Generate or regenerate a Word draft only for assignments explicitly marked `not_submitted`.
+4. Open a saved draft in the default document app.
+5. Approve a draft locally for your own review tracking.
+6. Open the Moodle login flow and save a local session.
+7. Open the local AI provider settings.
+8. Show saved assignment instructions.
 
-When you run a portal sync, the assistant scans the configured courses and downloads readable Moodle resource/folder files into course-specific folders under `data/materials/`. It then uses course-scoped retrieval to find relevant passages for each assignment-generation chunk. Generated Word drafts include source references when available; if local material does not support a course-specific detail, the model is instructed to flag the gap rather than invent a specification.
+Approval is only a local status; it does not submit anything. Existing command-line options remain available for troubleshooting and automation, but they are not required for normal use.
 
+## Shareable Windows build
 
-
-If local retrieval finds no matching course passages, the assignment agent can optionally use Tavily web search as a fallback. Web results are labelled with their titles and URLs; course materials remain the preferred source. Configure `TAVILY_API_KEY` in your local `.env` and keep `WEB_RESEARCH_ENABLED=true`. If the key is absent or the search service fails, generation continues without web results. External results are supporting references, not proof that a hardware specification matches the exact board used in class.
-
-The current retrieval implementation is a lightweight local lexical ranker (BM25-like), not vector embeddings. This avoids embedding API costs and keeps materials local. It can be upgraded to hybrid/vector retrieval later without changing the assignment-generation entry point. Readable resources currently include PDF, DOCX, PPTX, TXT, and Markdown files. Scanned-image PDFs still need OCR before they can provide useful text. Assignment extraction preserves question line breaks, and generated citations are checked against the retrieved filenames so placeholder citations are not presented as real sources.
-
-List assignments and their states:
+A Windows packaging workflow builds a portable folder containing the executable and a Chromium browser for Playwright. To build it yourself on Windows, run PowerShell from the repository folder:
 
 ```powershell
-python -m college_assistant.main --assignments
+.\build_windows.ps1
 ```
 
-Use the numeric assignment ID shown in the list to review or approve a draft:
+This creates `CollegeAIAssistant-Windows.zip`. Extract the ZIP to a writable folder and launch `Start College AI Assistant.bat` or `CollegeAIAssistant.exe`. No Python installation is needed on the recipient's PC. The GitHub Actions workflow also creates a downloadable artifact named `CollegeAIAssistant-Windows` on pushes to `main`, version tags, or manual workflow runs; artifacts are temporary (30 days).
 
-```powershell
-python -m college_assistant.main --show-solution 3
-python -m college_assistant.main --approve-solution 3
-```
+The first launch creates user-specific files under `%LOCALAPPDATA%\CollegeAIAssistant\`:
+- `data\assistant.db`: local database.
+- `data\materials\`, `data\processed\`, `data\summaries\`, and `data\solutions\`: local course content and drafts.
+- `data\portal-state.json`: local Moodle browser session.
+- `.env`: that user's AI provider settings and API keys.
 
-The approved copy is saved under `data/solutions/assignment_<ID>_approved.docx`. Review the draft in Word before approving it. Approval only records your local review state; it does not submit anything to Moodle.
-
-**Important:** assignment-page extraction and submission detection use Moodle page text and conservative phrase matching. If the status cannot be recognized, it remains `unknown` and no draft is generated. The portal certificate warning remains a separate security concern; verify it with the college rather than treating certificate bypass as a permanent solution.
-
-## Setup (Windows / PowerShell)
-
-Activate your virtual environment, then install dependencies:
-
-```powershell
-python -m pip install -r requirements.txt
-python -m pip install -e .
-python -m playwright install chromium
-```
-
-Create a local `.env` from `.env.example` only if you plan to use AI features. Never commit the real `.env`.
-
+Each friend must sign in to their own Moodle account and configure their own AI API key. Do not share `.env` or `portal-state.json`. The portable program folder contains the executable and browser, not your coursework database or login session.
 
 ## AI provider configuration
 
-Assignment generation supports Groq and Google's Gemini API through the OpenAI-compatible client. Choose one provider in your local, untracked `.env` file:
+Choose Groq or Gemini in the local `.env` file, opened from menu option 7. Restart the program after changing settings.
 
-Groq (default):
+Groq:
 ```dotenv
 LLM_PROVIDER=groq
 GROQ_API_KEY=your_groq_api_key
@@ -69,32 +53,42 @@ GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
-Create a Gemini API key in Google AI Studio. The code switches provider/model from configuration; no API key belongs in Git. Free-tier quotas vary by model, project, and account, so check the provider's current limits. Gemini's OpenAI-compatible API is documented at https://ai.google.dev/gemini-api/docs/openai.
-
-## Portal login
-
-Run:
-
-```powershell
-python login.py
+Optional Tavily fallback research:
+```dotenv
+TAVILY_API_KEY=your_tavily_api_key
+WEB_RESEARCH_ENABLED=true
 ```
 
-The session is saved to `data/portal-state.json`. It is a credential-equivalent secret: never share it or commit it. If it was previously committed or exposed, invalidate the session if possible, then log in again. The portal currently has a certificate warning in the existing workflow; `ignore_https_errors=True` is only a temporary workaround. Verify the certificate with the college before entering credentials.
+Never commit API keys. Free-tier limits vary by provider and account.
 
-## Run a sync
+## Moodle login and security
+
+Choose menu option 6 to open the browser and save your local Moodle session. The current login flow retains the project's existing `ignore_https_errors=True` workaround because the portal has previously shown a certificate warning. **Verify that warning with the college before entering credentials.** Do not share the saved session file; it is equivalent to a credential.
+
+## Assignment drafts and source retrieval
+
+- Assignment status is classified conservatively. Draft generation is restricted to assignments explicitly marked `not_submitted`; unknown or submitted assignments are not eligible.
+- Drafts are saved as Word documents and should be reviewed before use.
+- Local course material is preferred for retrieval. If local retrieval finds no relevant evidence, optional Tavily search can provide external references. External results do not prove board-specific hardware details.
+- Retrieval is a lightweight local lexical ranker (BM25-like), not vector embeddings. Readable formats include PDF, DOCX, PPTX, TXT, and Markdown. Scanned PDFs may require OCR.
+- No submission is performed by this project.
+
+## Developer setup and tests
+
+Python 3.10+ is required for development:
 
 ```powershell
-python -m college_assistant.main
+python -m pip install -r requirements.txt
+python -m pip install -e .
+python -m playwright install chromium
+python -m pytest
 ```
 
-Initialize the database without logging in:
+The source checkout continues to store development data in its local `data\` folder and loads `.env` from the repository root. The packaged Windows build uses a per-user data directory so different people can use the same ZIP without sharing sessions or generated files.
 
-```powershell
-python -m college_assistant.main --init-db
-```
+## Current limitations
 
-Local portal state, database, downloaded materials, extracted text, summaries, and solutions belong outside version control.
-
-## Detection caveat
-
-Current change detection compares activity identity, title, and URL. Moodle may change due dates or instructions without changing the link/title; deeper activity-page inspection is needed. Removed links are reported only after a course page was successfully scanned.
+- Moodle page parsing and submission detection rely on visible page text and conservative phrase matching.
+- Course sync reports changes to activity identity/title/URL; changes to due dates or instructions that preserve the same link may not be detected.
+- Scanned PDFs need OCR.
+- The portal certificate warning should be resolved with the college rather than treated as a permanent bypass.

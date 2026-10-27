@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from college_assistant.config import DATA_DIR, ENV_FILE, SOLUTIONS_DIR
+from college_assistant.config import DATA_DIR, ENV_FILE, PORTAL_STATE_FILE, SOLUTIONS_DIR
 from college_assistant.assignment_solutions import regenerate_assignment_draft
 from college_assistant.portal_login import save_portal_login
 from college_assistant.portal_sync import print_report, run_sync
@@ -136,19 +136,42 @@ def _generate_draft() -> None:
     print("Nothing was submitted to Moodle. Review the draft before using it.")
 
 
+
+def _check_assignments() -> None:
+    """Refresh assignment status without generating drafts."""
+    if not PORTAL_STATE_FILE.is_file():
+        print("First, sign in to Moodle using option 4. Your session stays on this computer.")
+        return
+    print("\nChecking Moodle assignments...")
+    results = run_sync()
+    print_report(results)
+    assignments = list_assignments()
+    eligible = [item for item in assignments if item.get("submission_status") == "not_submitted"]
+    print(f"\nReady for review: {len(eligible)} assignment(s) explicitly marked not submitted.")
+    if eligible:
+        print("Choose option 2 to select an assignment. No draft was generated automatically.")
+    elif any(item.get("submission_status") == "unknown" for item in assignments):
+        print("Some statuses are unknown. Verify those assignments in Moodle before drafting.")
+
+
 def _interactive_menu() -> None:
     actions = {
-        "1": ("Sync Moodle courses and materials", lambda: print_report(run_sync())),
-        "2": ("List assignments and draft status", _list_assignments),
-        "3": ("Generate/regenerate a Word draft", _generate_draft),
+        "1": ("Check Moodle assignments", _check_assignments),
+        "2": ("Prepare an assignment draft", _generate_draft),
+        "6": ("View assignments and draft status", _list_assignments),
         "4": ("Open a saved Word draft", lambda: _open_solution(int(input("Assignment ID: ").strip()))),
-        "5": ("Approve a draft locally", lambda: _approve_solution(int(input("Assignment ID: ").strip()))),
-        "6": ("Sign in to Moodle / refresh local session", save_portal_login),
-        "7": ("Configure AI provider and API keys", _configure_ai),
-        "8": ("Show saved assignment instructions", lambda: _show_instructions(int(input("Assignment ID: ").strip()))),
+        "8": ("Mark a draft reviewed (local only)", lambda: _approve_solution(int(input("Assignment ID: ").strip()))),
+        "4": ("Sign in to Moodle / refresh local session", save_portal_login),
+        "5": ("Set up AI provider / API key", _configure_ai),
+        "7": ("Show assignment instructions", lambda: _show_instructions(int(input("Assignment ID: ").strip()))),
     }
     while True:
         print("\n" + "=" * 56 + "\n             COLLEGE AI ASSISTANT\n" + "=" * 56)
+        if not PORTAL_STATE_FILE.is_file():
+            print("SETUP NEEDED: sign in to Moodle first (option 4).")
+        elif not (os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")):
+            print("SETUP NEEDED: configure an AI provider before generating drafts (option 5).")
+        print("\nRecommended workflow: 1. Check assignments -> 2. Choose a draft -> 3. Review the Word file")
         for key, (label, _) in actions.items():
             print(f"  {key}. {label}")
         print("  0. Exit")

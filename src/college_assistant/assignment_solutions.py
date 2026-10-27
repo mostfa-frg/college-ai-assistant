@@ -165,6 +165,81 @@ def _split_instruction_chunks(instructions: str, max_chars: int = 4500) -> list[
     return chunks
 
 
+
+def _split_task_chunks(instructions: str, max_chars: int = 2200) -> list[str]:
+    """Group complete numbered tasks into small generation units with section context.
+
+    Smaller task batches limit output truncation. A section/scenario heading is copied
+    into each batch so independently generated answers retain their context.
+    """
+    text = instructions.replace("\r\n", "\n").replace(r"\n", "\n")
+    heading_re = re.compile(
+        r"^\s*(?:Part\s+[A-Z]\b.*|Scenario\s+\d+\b.*|Section\s+\d+\b.*)$",
+        re.IGNORECASE,
+    )
+    question_re = re.compile(r"^\s*\d{1,3}[.)]\s+\S")
+    lines = text.splitlines()
+    units: list[tuple[str, str]] = []
+    heading = ""
+    body: list[str] = []
+
+    def flush():
+        nonlocal body
+        if body:
+            units.append((heading, "\n".join(body).strip()))
+            body = []
+
+    for line in lines:
+        if heading_re.match(line):
+            flush()
+            heading = line.strip()
+        elif question_re.match(line):
+            flush()
+            body = [line.rstrip()]
+        elif body:
+            body.append(line.rstrip())
+        elif line.strip():
+            # Preserve introductory text before the first numbered task.
+            body = [line.rstrip()]
+
+    flush()
+    if not units:
+        return _split_instruction_chunks(text, max_chars=max_chars)
+
+    chunks: list[str] = []
+    current_heading = ""
+    current_body = ""
+    for unit_heading, unit_body in units:
+        prefix = unit_heading or current_heading
+        candidate = "\n".join(part for part in (prefix, current_body, unit_body) if part).strip()
+        if current_body and len(candidate) > max_chars:
+            chunks.append("\n".join(part for part in (current_heading, current_body) if part).strip())
+            current_body = unit_body
+            current_heading = prefix
+        else:
+            current_body = "\n\n".join(part for part in (current_body, unit_body) if part).strip()
+            if prefix:
+                current_heading = prefix
+
+        if len(current_body) + len(current_heading) + 1 > max_chars:
+            # A single unusually long task must be split at line boundaries.
+            long_text = current_body
+            current_body = ""
+            lines_for_task = long_text.splitlines()
+            piece = ""
+            for task_line in lines_for_task:
+                if piece and len(piece) + len(task_line) + 1 > max_chars:
+                    chunks.append("\n".join(part for part in (current_heading, piece) if part).strip())
+                    piece = task_line
+                else:
+                    piece = (piece + "\n" + task_line).strip()
+            current_body = piece
+
+    if current_body:
+        chunks.append("\n".join(part for part in (current_heading, current_body) if part).strip())
+    return [chunk for chunk in chunks if chunk]
+
+
 def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
     """Retrieve evidence per numbered task to reduce query dilution."""
     question_start = re.compile(r"^\s*(?:Question\s*)?\d{1,3}[.)]\s+", re.IGNORECASE)
@@ -204,7 +279,7 @@ def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
 
 def _generate_solution_content(client, assignment: dict, instructions: str) -> str:
     """Generate bounded chunks separately and combine their answers for Word export."""
-    chunks = _split_instruction_chunks(instructions)
+    chunks = _split_task_chunks(instructions)
     answers = []
     for index, chunk in enumerate(chunks, start=1):
         evidence = _retrieve_chunk_evidence(
@@ -223,7 +298,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             temperature=0.2,
-            max_completion_tokens=2500,
+            max_completion_tokens=1600,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content":

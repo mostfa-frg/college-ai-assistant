@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>College AI Assistant</title>
+  <style>
+    :root{color-scheme:light;--ink:#172b27;--muted:#687b75;--line:#e0e9e4;--paper:#f6f8f5;--green:#1e5b49;--mint:#dcefe5}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{background:#173e34;color:#fff;padding:28px max(24px,calc((100% - 1180px)/2));display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{font-size:20px;font-weight:750;letter-spacing:-.4px}.brand span{color:#a9d8bd}.sub{color:#c5d8cf;font-size:13px;margin-top:4px}
+    main{max-width:1180px;margin:30px auto;padding:0 22px}.eyebrow{text-transform:uppercase;letter-spacing:1.6px;color:var(--green);font-size:11px;font-weight:800}
+    h1{font-size:30px;letter-spacing:-1px;margin:5px 0 6px}.intro{color:var(--muted);margin:0 0 24px}
+    .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:26px}.stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:19px}
+    .stat .label{font-size:12px;color:var(--muted)}.stat strong{display:block;font-size:28px;letter-spacing:-1px;margin-top:5px}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 12px}.toolbar h2{font-size:18px;margin:0}
+    button,.btn{font:inherit;font-weight:650;border:0;border-radius:9px;padding:10px 14px;background:var(--green);color:#fff;text-decoration:none;cursor:pointer;display:inline-block}
+    .secondary{background:var(--mint);color:var(--green)}.quiet{background:#f0f4f1;color:var(--ink)}button:hover,.btn:hover{filter:brightness(.96)}
+    .table-wrap{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:15px 17px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);background:#fbfcfa}tr:last-child td{border-bottom:0}
+    .assignment{font-weight:750}.meta{font-size:12px;color:var(--muted);margin-top:4px}.pill{display:inline-block;border-radius:30px;padding:4px 9px;background:#f0f3f1;font-size:12px;font-weight:700;white-space:nowrap}.good{background:#e1f4e7;color:#23633d}.warn{background:#fff2d7;color:#805500}.bad{background:#fce8e6;color:#9b3027}
+    .actions{display:flex;gap:7px;flex-wrap:wrap}.actions form{margin:0}.empty{padding:40px;text-align:center;color:var(--muted)}.notice{background:#e1f4e7;border:1px solid #c6e5d0;border-radius:10px;padding:12px 15px;margin-bottom:18px;color:#23633d}
+    footer{color:var(--muted);font-size:12px;margin:18px 2px 36px}
+    @media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}.table-wrap{overflow-x:auto}table{min-width:800px}header{align-items:flex-start;flex-direction:column}}
+    @media(max-width:480px){main{padding:0 14px;margin-top:22px}.stats{gap:8px}.stat{padding:14px}h1{font-size:25px}.toolbar{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<header><div><div class="brand">College <span>AI</span> Assistant</div><div class="sub">Your coursework, organized for review.</div></div><form action="/actions/check" method="post"><button class="secondary" type="submit">Check Moodle assignments</button></form></header>
+<main>
+  <div class="eyebrow">Workspace / Overview</div><h1>Assignment dashboard</h1>
+  <p class="intro">Track deadlines, check submission status, and prepare drafts to review on your computer.</p>
+  {% if request.query_params.get('notice') %}
+  <div class="notice">
+    {% set notice = request.query_params.get('notice') %}
+    {% if notice == 'check-complete' %}Moodle check finished. Assignment information has been refreshed.
+    {% elif notice == 'draft-generated' %}Draft generated. Open the Word file and review it before use.
+    {% elif notice == 'marked-reviewed' %}Local review recorded. Nothing was submitted to Moodle.
+    {% else %}Action completed.{% endif %}
+  </div>
+  {% endif %}
+  <section class="stats">
+    <div class="stat"><div class="label">Assignments tracked</div><strong>{{ counts.total }}</strong></div>
+    <div class="stat"><div class="label">Marked not submitted</div><strong>{{ counts.ready }}</strong></div>
+    <div class="stat"><div class="label">Drafts to review</div><strong>{{ counts.review }}</strong></div>
+    <div class="stat"><div class="label">Reviewed locally</div><strong>{{ counts.approved }}</strong></div>
+  </section>
+  <div class="toolbar"><h2>Your assignments</h2><span class="meta">Sorted by due date when available</span></div>
+  <div class="table-wrap">
+  {% if assignments %}
+  <table><thead><tr><th>Assignment</th><th>Due date</th><th>Moodle status</th><th>Draft status</th><th>Actions</th></tr></thead><tbody>
+  {% for item in assignments %}
+  <tr>
+    <td><div class="assignment">{{ item.title }}</div><div class="meta">Course {{ item.course_id }} · <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">Open in Moodle ↗</a></div></td>
+    <td>{{ item.due_at or 'Not available' }}</td>
+    <td><span class="pill {% if item.submission_status == 'not_submitted' %}warn{% elif item.submission_status == 'submitted' %}good{% else %}bad{% endif %}">{{ (item.submission_status or 'unknown').replace('_',' ') }}</span></td>
+    <td><span class="pill">{{ (item.solution_status or 'not generated').replace('_',' ') }}</span></td>
+    <td><div class="actions">
+      {% if item.instructions_text %}<button class="quiet" type="button" onclick="showInstructions({{ item.id }})">Instructions</button>{% endif %}
+      {% if item.submission_status == 'not_submitted' %}<form action="/actions/generate/{{ item.id }}" method="post" onsubmit="return confirm('Generate a draft for this assignment? It will not be submitted to Moodle.')"><button type="submit">Generate draft</button></form>{% endif %}
+      {% if item.solution_path or item.approved_solution_path %}<a class="btn secondary" href="/actions/open/{{ item.id }}">Open Word</a>{% endif %}
+      {% if item.solution_path and item.solution_status != 'approved' %}<form action="/actions/approve/{{ item.id }}" method="post" onsubmit="return confirm('Mark this draft reviewed locally? This does not submit it to Moodle.')"><button class="quiet" type="submit">Mark reviewed</button></form>{% endif %}
+    </div></td>
+  </tr>
+  {% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty"><strong>No assignments yet</strong><p>Use “Check Moodle assignments” after signing in through the existing CLI.</p></div>{% endif %}
+  </div>
+  <div id="instruction-modal" hidden style="position:fixed;inset:0;background:#10251dcc;padding:24px;z-index:5;overflow:auto"><div style="max-width:760px;margin:5vh auto;background:white;border-radius:16px;padding:24px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><h2 id="instruction-title">Assignment instructions</h2><button type="button" onclick="closeInstructions()">Close</button></div><pre id="instruction-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.6 ui-monospace,monospace;max-height:65vh;overflow:auto"></pre></div></div>
+  <footer>Draft generation is restricted to assignments Moodle explicitly marks “not submitted.” Review is local only; this dashboard never submits work to Moodle.</footer>
+</main>
+<script>
+async function showInstructions(id){
+  const modal=document.getElementById('instruction-modal');
+  const title=document.getElementById('instruction-title');
+  const body=document.getElementById('instruction-body');
+  title.textContent='Loading assignment…';body.textContent='';
+  modal.hidden=false;
+  try{
+    const response=await fetch('/api/assignments/'+id);
+    if(!response.ok) throw new Error('Could not load assignment details.');
+    const data=await response.json();
+    title.textContent=data.assignment.title;
+    body.textContent=data.assignment.instructions_text || 'No instructions are stored.';
+  }catch(error){title.textContent='Could not load instructions';body.textContent=error.message;}
+}
+function closeInstructions(){document.getElementById('instruction-modal').hidden=true;}
+document.getElementById('instruction-modal').addEventListener('click',event=>{if(event.target.id==='instruction-modal')closeInstructions();});
+</script>
+</body></html>

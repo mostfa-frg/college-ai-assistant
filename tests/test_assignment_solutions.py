@@ -91,6 +91,7 @@ def test_word_export_creates_docx_with_heading_and_lists(tmp_path):
 
 
 def test_regeneration_allows_recovery_when_approved_file_is_missing(monkeypatch, tmp_path):
+    from pathlib import Path
     from college_assistant.storage import repositories
     from college_assistant.assignment_solutions import regenerate_assignment_draft
     import pytest

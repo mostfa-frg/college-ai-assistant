@@ -68,6 +68,7 @@ def generate_pending_drafts() -> list[dict]:
         if (
             "ASSIGNMENT_DESCRIPTION_NOT_FOUND" in instructions
             or "ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED" in instructions
+            or "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED" in instructions
         ):
             skipped.append(assignment["title"])
             continue

@@ -326,9 +326,8 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         evidence = _retrieve_chunk_evidence(
             str(assignment["course_id"]), assignment["title"], chunk
         )
-                if not evidence:
-            # External research is only a fallback; the course's own material remains
-            # the source of truth whenever local evidence is available.
+        if not evidence:
+            # External research is a fallback; local course material always wins.
             query_lines = [
                 line.strip() for line in chunk.splitlines()
                 if line.strip() and not re.match(
@@ -336,20 +335,23 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                     line, re.IGNORECASE
                 )
             ]
-            research_query = f"{assignment['title']} {assignment.get('course_id', '')} " + " ".join(query_lines)
+            research_query = (
+                f"{assignment['title']} {assignment.get('course_id', '')} "
+                + " ".join(query_lines)
+            )
             evidence = search_web_evidence(research_query[:500], max_results=3)
-            if evidence:
+
         if evidence:
-            # Keep prompts comfortably below the model's 8k TPM budget.
+            # Keep prompts comfortably below the model's token budget.
             evidence_parts = []
             for item in evidence[:3]:
                 if str(item.location).startswith(("https://", "http://")):
                     evidence_parts.append(
-                        f"[Web source: {item.source}]\\nURL: {item.location}\\n{item.text[:1000]}"
+                        f"[Web source: {item.source}]\nURL: {item.location}\n{item.text[:1000]}"
                     )
                 else:
                     evidence_parts.append(
-                        f"[Source: {item.source}, {item.location}]\\n{item.text[:1000]}"
+                        f"[Source: {item.source}, {item.location}]\n{item.text[:1000]}"
                     )
             evidence_text = "\n\n".join(evidence_parts)
         else:

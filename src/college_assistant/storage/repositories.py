@@ -140,7 +140,8 @@ def save_solution_draft(assignment_id: int, path: Path) -> None:
     with get_connection() as connection:
         connection.execute("""
             UPDATE assignments SET solution_status = 'pending_review',
-                solution_path = ?, generated_at = CURRENT_TIMESTAMP
+                solution_path = ?, approved_solution_path = NULL, approved_at = NULL,
+                generated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         """, (str(path), assignment_id))
 

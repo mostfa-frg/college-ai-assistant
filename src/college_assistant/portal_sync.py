@@ -38,13 +38,31 @@ def _activity_type(url: str) -> str:
     return "activity"
 
 
-def _extract_assignment_instructions(detail_page) -> str | None:
-    """Extract the assignment description, not the whole Moodle page chrome.
+def _extract_pdf_text(detail_page, href: str) -> str | None:
+    """Download a Moodle attachment with the authenticated browser context and extract PDF text."""
+    try:
+        from urllib.parse import urljoin
+        import fitz
 
-    Attachment names are recorded for diagnosis, but file contents are not parsed
-    yet. If attachments exist, downstream draft generation must stop rather than
-    pretend it has read them.
-    """
+        url = urljoin(detail_page.url, href)
+        response = detail_page.context.request.get(url, timeout=30000)
+        if not response.ok:
+            return None
+        payload = response.body()
+        if not payload.startswith(b"%PDF"):
+            return None
+        document = fitz.open(stream=payload, filetype="pdf")
+        try:
+            text = "\\n\\n".join(page.get_text("text") for page in document).strip()
+        finally:
+            document.close()
+        return text if len(text) >= 100 else "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED"
+    except Exception:
+        return None
+
+
+def _extract_assignment_instructions(detail_page) -> str | None:
+    """Extract assignment descriptions and readable text from attached PDFs."""
     description_parts: list[str] = []
     for selector in ("#intro", ".activity-description", ".assignintro"):
         locator = detail_page.locator(selector)
@@ -56,7 +74,8 @@ def _extract_assignment_instructions(detail_page) -> str | None:
             if text and text not in description_parts:
                 description_parts.append(text)
 
-    attachment_names: list[str] = []
+    attachments: list[tuple[str, str]] = []
+    seen_hrefs: set[str] = set()
     for selector in (
         ".assignsubmission_file a",
         ".attachments a",
@@ -70,21 +89,29 @@ def _extract_assignment_instructions(detail_page) -> str | None:
                 href = link.get_attribute("href") or ""
             except Exception:
                 continue
-            if name and href and name not in attachment_names:
-                attachment_names.append(name)
+            if name and href and href not in seen_hrefs:
+                seen_hrefs.add(href)
+                attachments.append((name, href))
 
-    if not description_parts and not attachment_names:
+    if not description_parts and not attachments:
         return "ASSIGNMENT_DESCRIPTION_NOT_FOUND: Moodle page loaded, but no readable assignment description was found."
 
     sections = []
     if description_parts:
         sections.append("ASSIGNMENT DESCRIPTION:\\n" + "\\n\\n".join(description_parts))
-    if attachment_names:
-        sections.append(
-            "ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED: The following attached files "
-            "were listed on Moodle, but their contents have not been read: "
-            + ", ".join(attachment_names)
-        )
+
+    for name, href in attachments:
+        if name.casefold().endswith(".pdf") or ".pdf" in href.casefold():
+            extracted = _extract_pdf_text(detail_page, href)
+            if extracted and extracted != "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED":
+                sections.append(f"ATTACHMENT PDF TEXT ({name}):\\n{extracted}")
+            elif extracted == "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED":
+                sections.append(f"PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED: {name}")
+            else:
+                sections.append(f"ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED: {name}")
+        else:
+            sections.append(f"ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED: {name}")
+
     return "\\n\\n".join(sections)[:24000]
 
 

@@ -1,4 +1,14 @@
 .env
 .venv/
 __pycache__/
-`ndata/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local state, credentials, and generated course data
+/data/portal-state.json
+/data/assistant.db
+/data/materials/
+/data/processed/
+/data/summaries/

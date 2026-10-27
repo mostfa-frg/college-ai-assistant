@@ -104,8 +104,10 @@ def _write_word_document(markdown_path):
             paragraph = document.add_paragraph(style="List Bullet")
             add_inline(paragraph, re.sub(r"^\s*[-*]\s+", "", line))
         elif re.match(r"^\s*\d+[.)]\s+", line):
-            paragraph = document.add_paragraph(style="List Number")
-            add_inline(paragraph, re.sub(r"^\s*\d+[.)]\s+", "", line))
+            # Preserve authored numbering literally. Word's automatic List Number
+            # style can continue numbering across sections and turn answer steps
+            # into apparent assignment questions.
+            add_inline(document.add_paragraph(), line.strip())
         else:
             add_inline(document.add_paragraph(), stripped)
 

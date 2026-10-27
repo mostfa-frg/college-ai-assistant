@@ -15,6 +15,21 @@ Unknown or submitted assignments are not eligible for generation. The menu remin
 
 Course-material downloads are not part of the quick assignment check. Approval is a local status only and never submits anything.
 
+## Optional local web dashboard
+
+Prefer a browser interface? The project also includes a lightweight FastAPI dashboard with no separate frontend build step. It complements the existing CLI; it does not replace it.
+
+From the repository root, with your project environment activated, install the project and start the dashboard:
+
+```powershell
+python -m pip install -e .
+python -m uvicorn college_assistant.web_app:app --reload
+```
+
+Then open http://127.0.0.1:8000. Sign in to Moodle through CLI menu option 4 before using the dashboard's Moodle refresh action. The dashboard can show assignments and instructions, generate eligible Word drafts, download drafts, and mark drafts reviewed locally.
+
+**Safety:** Draft generation is available only for assignments explicitly marked `not_submitted`. Reviewing a draft records a local status; nothing is submitted to Moodle. Keep the server on localhost and do not expose it to the internet or an untrusted network. See [WEB_DASHBOARD.md](WEB_DASHBOARD.md) for details.
+
 ## Shareable Windows build
 
 A Windows packaging workflow builds a portable folder containing the executable and Playwright runtime, but **does not bundle Chromium**. This keeps the initial ZIP smaller. The first time a user chooses Moodle login or sync, the app downloads Chromium once into that Windows user's `%LOCALAPPDATA%\CollegeAIAssistant\ms-playwright\` folder. That first setup requires an internet connection and may take a few minutes; subsequent launches reuse the downloaded browser.

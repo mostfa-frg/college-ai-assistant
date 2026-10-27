@@ -1,13 +1,29 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-load_dotenv(PROJECT_ROOT / ".env")
+FROZEN = bool(getattr(sys, "frozen", False))
+APP_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2]
+
+if FROZEN:
+    LOCAL_APP_DATA = Path(os.getenv("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+    USER_APP_DIR = LOCAL_APP_DATA / "CollegeAIAssistant"
+    DATA_DIR = USER_APP_DIR / "data"
+    ENV_FILE = USER_APP_DIR / ".env"
+    BROWSER_DIR = APP_DIR / "_playwright-browsers"
+    if BROWSER_DIR.is_dir():
+        os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(BROWSER_DIR))
+else:
+    PROJECT_ROOT = APP_DIR
+    DATA_DIR = PROJECT_ROOT / "data"
+    ENV_FILE = PROJECT_ROOT / ".env"
+    BROWSER_DIR = None
+
+load_dotenv(ENV_FILE)
 
 BASE_URL = "https://learn3.sha.edu.eg/"
-DATA_DIR = PROJECT_ROOT / "data"
 MATERIALS_DIR = DATA_DIR / "materials"
 PROCESSED_DIR = DATA_DIR / "processed"
 SUMMARIES_DIR = DATA_DIR / "summaries"
@@ -15,7 +31,6 @@ SOLUTIONS_DIR = DATA_DIR / "solutions"
 PORTAL_STATE_FILE = DATA_DIR / "portal-state.json"
 DATABASE_PATH = DATA_DIR / "assistant.db"
 
-# Course IDs confirmed during portal inspection.
 COURSE_IDS = (
     "1325",  # Cloud computing
     "1327",  # Embedded systems
@@ -25,14 +40,11 @@ COURSE_IDS = (
     "1326",  # Distributed systems
 )
 
-# Provider can be "groq" or "gemini". Existing Groq .env files keep working.
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").strip().lower()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
-
-# Optional Tavily web search used only when local course retrieval finds no evidence.
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 WEB_RESEARCH_ENABLED = os.getenv("WEB_RESEARCH_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
 

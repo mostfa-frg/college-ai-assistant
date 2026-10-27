@@ -11,9 +11,13 @@ A local-first assistant for checking college portal updates when you choose to r
 - Assignment drafts and approved copies are stored locally, with their paths and approval status recorded in SQLite.
 - Nothing is submitted to the college portal. Summaries are generated only when explicitly requested.
 
-## Assignment solution review and retrieval
+## Assignment solutions and course-material RAG
 
-Once a draft exists, list assignments and their states:
+When you run a portal sync, the assistant scans the configured courses and downloads readable Moodle resource/folder files into course-specific folders under `data/materials/`. It then uses course-scoped retrieval to find relevant passages for each assignment-generation chunk. Generated Word drafts include source references when available; if local material does not support a course-specific detail, the model is instructed to flag the gap rather than invent a specification.
+
+The current retrieval implementation is a lightweight local lexical ranker (BM25-like), not vector embeddings. This avoids embedding API costs and keeps materials local. It can be upgraded to hybrid/vector retrieval later without changing the assignment-generation entry point. Scanned resources currently include PDF, TXT, and Markdown files; scanned-image PDFs still need OCR before they can provide useful text.
+
+List assignments and their states:
 
 ```powershell
 python -m college_assistant.main --assignments
@@ -26,9 +30,9 @@ python -m college_assistant.main --show-solution 3
 python -m college_assistant.main --approve-solution 3
 ```
 
-Approval creates a separate copy under `data/solutions/assignment_<ID>_approved.md` and records the approved state and path in SQLite. You can return to the approved solution at any time using `--show-solution ID` or open the saved Markdown file directly. The draft is retained separately. Do not approve until you have reviewed the solution.
+The approved copy is saved under `data/solutions/assignment_<ID>_approved.docx`. Review the draft in Word before approving it. Approval only records your local review state; it does not submit anything to Moodle.
 
-**Important:** assignment-page extraction and submission detection use Moodle page text and conservative phrase matching. If the status cannot be recognized, it remains `unknown` and no draft is generated. Check the detected status before relying on it; portal wording may vary.
+**Important:** assignment-page extraction and submission detection use Moodle page text and conservative phrase matching. If the status cannot be recognized, it remains `unknown` and no draft is generated. The portal certificate warning remains a separate security concern; verify it with the college rather than treating certificate bypass as a permanent solution.
 
 ## Setup (Windows / PowerShell)
 

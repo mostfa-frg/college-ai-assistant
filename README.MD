@@ -15,6 +15,10 @@ A local-first assistant for checking college portal updates when you choose to r
 
 When you run a portal sync, the assistant scans the configured courses and downloads readable Moodle resource/folder files into course-specific folders under `data/materials/`. It then uses course-scoped retrieval to find relevant passages for each assignment-generation chunk. Generated Word drafts include source references when available; if local material does not support a course-specific detail, the model is instructed to flag the gap rather than invent a specification.
 
+
+
+If local retrieval finds no matching course passages, the assignment agent can optionally use Tavily web search as a fallback. Web results are labelled with their titles and URLs; course materials remain the preferred source. Configure `TAVILY_API_KEY` in your local `.env` and keep `WEB_RESEARCH_ENABLED=true`. If the key is absent or the search service fails, generation continues without web results. External results are supporting references, not proof that a hardware specification matches the exact board used in class.
+
 The current retrieval implementation is a lightweight local lexical ranker (BM25-like), not vector embeddings. This avoids embedding API costs and keeps materials local. It can be upgraded to hybrid/vector retrieval later without changing the assignment-generation entry point. Readable resources currently include PDF, DOCX, PPTX, TXT, and Markdown files. Scanned-image PDFs still need OCR before they can provide useful text. Assignment extraction preserves question line breaks, and generated citations are checked against the retrieved filenames so placeholder citations are not presented as real sources.
 
 List assignments and their states:

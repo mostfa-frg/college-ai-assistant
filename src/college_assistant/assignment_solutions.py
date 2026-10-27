@@ -31,8 +31,8 @@ STRUCTURE RULES:
   as separate subquestions.
 - Use Markdown headings for parts, bold labels for questions, bullets for answer steps,
   and blank lines between items. Avoid one continuous numbered list for the whole file.
-- If source numbering is ambiguous or content is missing, flag that explicitly instead
-  of guessing or inventing questions."""
+- Before returning, compare the source chunk against the answer and verify that every question and subquestion is present and answered.
+- If source numbering is ambiguous or content is missing, flag that explicitly instead of guessing or inventing questions."""
 
 
 _PLACEHOLDER_PATTERNS = (

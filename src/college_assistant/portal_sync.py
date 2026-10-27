@@ -38,6 +38,36 @@ def _activity_type(url: str) -> str:
     return "activity"
 
 
+def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
+    """Read assignment instructions and classify submission state conservatively."""
+    detail_page = context.new_page()
+    try:
+        response = detail_page.goto(url, wait_until="domcontentloaded", timeout=45000)
+        if "/login/" in detail_page.url or (response and response.status >= 400):
+            return None, "unknown"
+        body = " ".join(detail_page.locator("body").inner_text(timeout=15000).split())
+        lower = body.casefold()
+        not_submitted_phrases = (
+            "no submissions have been made", "nothing has been submitted",
+            "no attempt has been made", "not submitted",
+        )
+        submitted_phrases = (
+            "submitted for grading", "submission status: submitted",
+            "submitted on", "submission was submitted",
+        )
+        if any(phrase in lower for phrase in not_submitted_phrases):
+            status = "not_submitted"
+        elif any(phrase in lower for phrase in submitted_phrases):
+            status = "submitted"
+        else:
+            status = "unknown"
+        return (body[:24000] if body else None), status
+    except Exception:
+        return None, "unknown"
+    finally:
+        detail_page.close()
+
+
 def scan_course(page, course_id: str) -> dict:
     course_url = urljoin(BASE_URL, f"course/view.php?id={course_id}")
     previous_scan = get_course_scan_time(course_id)
@@ -96,8 +126,16 @@ def scan_course(page, course_id: str) -> dict:
             })
 
         if activity_type == "assignment":
-            upsert_assignment(course_id, key, title, url)
-            assignments.append({"title": title, "url": url, "key": key})
+            instructions_text, submission_status = _inspect_assignment(page.context, url)
+            upsert_assignment(
+                course_id, key, title, url,
+                instructions_text=instructions_text,
+                submission_status=submission_status,
+            )
+            assignments.append({
+                "title": title, "url": url, "key": key,
+                "submission_status": submission_status,
+            })
 
     # An empty result may mean a portal/layout/loading problem, not that all
     # course activities were deleted. Fail safely and preserve the prior snapshot.
@@ -183,6 +221,8 @@ def print_report(results: list[dict]) -> None:
             print(f"    {change['url']}")
         if result["assignments"]:
             print(f"  Assignment activities found: {len(result['assignments'])}")
+            for assignment in result["assignments"]:
+                print(f"    - {assignment['title']} [submission: {assignment['submission_status']}]")
 
     print("\nDraft generation is limited to assignments explicitly marked not_submitted")
     print("with captured instructions. Nothing is submitted to the portal.")

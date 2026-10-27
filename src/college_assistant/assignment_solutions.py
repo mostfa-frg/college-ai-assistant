@@ -288,9 +288,12 @@ def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
 
 def _generate_solution_content(client, assignment: dict, instructions: str) -> str:
     """Generate bounded chunks separately and combine their answers for Word export."""
-    chunks = _split_task_chunks(instructions, max_chars=1100)
+    chunks = _split_task_chunks(instructions, max_chars=700)
     answers = []
-    for index, chunk in enumerate(chunks, start=1):
+    index = 0
+    while index < len(chunks):
+        chunk = chunks[index]
+        index += 1
         evidence = _retrieve_chunk_evidence(
             str(assignment["course_id"]), assignment["title"], chunk
         )
@@ -307,7 +310,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             temperature=0.2,
-            max_completion_tokens=1600,
+            max_completion_tokens=2400,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content":
@@ -328,10 +331,42 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         )
         choice = response.choices[0]
         if getattr(choice, "finish_reason", None) == "length":
-            raise ValueError(
-                f"The model hit its output limit in task batch {index}/{len(chunks)}; "
-                "no incomplete solution should be saved. Retry with smaller batches."
+            # Split multi-task chunks at numbered task boundaries and retry each half.
+            task_starts = list(re.finditer(r"(?m)^\s*\d{1,3}[.)]\s+\S", chunk))
+            if len(task_starts) >= 2:
+                heading_match = re.match(r"(?s)^([^\n]+\n)", chunk)
+                heading = heading_match.group(1).strip() if heading_match else ""
+                split_at = task_starts[len(task_starts) // 2].start()
+                left = chunk[:split_at].strip()
+                right = chunk[split_at:].strip()
+                if heading and not left.startswith(heading):
+                    left = f"{heading}\n{left}"
+                if heading and not right.startswith(heading):
+                    right = f"{heading}\n{right}"
+                chunks[index - 1:index - 1] = [left, right]
+                continue
+
+            # A single long task gets one concise retry with a larger output allowance.
+            retry = client.chat.completions.create(
+                model=GROQ_MODEL,
+                temperature=0.2,
+                max_completion_tokens=4000,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content":
+                        f"Answer this single task concisely and completely. Use bullets where useful; "
+                        f"avoid long introductions. Assignment: {assignment['title']}\n"
+                        f"Course ID: {assignment['course_id']}\n"
+                        f"<assignment_instructions>\n{chunk}\n</assignment_instructions>\n"
+                        f"<course_material_evidence>\n{evidence_text}\n</course_material_evidence>"}
+                ],
             )
+            choice = retry.choices[0]
+            if getattr(choice, "finish_reason", None) == "length":
+                raise ValueError(
+                    f"The model repeatedly hit its output limit on task batch {index}/{len(chunks)}; "
+                    "no incomplete solution was saved. The task may exceed this model's output limit."
+                )
         content = choice.message.content
         if not content or not content.strip():
             raise ValueError(f"The model returned an empty answer for source chunk {index}/{len(chunks)}.")

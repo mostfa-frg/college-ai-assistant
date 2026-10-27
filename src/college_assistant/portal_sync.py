@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from playwright.sync_api import sync_playwright
 
 from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
+from college_assistant.assignment_solutions import generate_pending_drafts
 from college_assistant.storage.repositories import (
     finish_sync_run,
     get_activity,
@@ -151,6 +152,14 @@ def run_sync() -> list[dict]:
                 context.close()
                 browser.close()
         finish_sync_run(run_id)
+        try:
+            generated = generate_pending_drafts()
+            if generated:
+                print("\nAssignment drafts generated for review:")
+                for item in generated:
+                    print(f"  [{item['id']}] {item['title']} -> {item['path']}")
+        except Exception as error:
+            print(f"\nWarning: assignment draft generation failed: {error}")
         return results
     except Exception as error:
         finish_sync_run(run_id, str(error)[:1000])
@@ -175,5 +184,5 @@ def print_report(results: list[dict]) -> None:
         if result["assignments"]:
             print(f"  Assignment activities found: {len(result['assignments'])}")
 
-    print("\nNote: this scan records assignment links only. Submission-state detection and")
-    print("automatic draft generation are separate steps; nothing is submitted to the portal.")
+    print("\nDraft generation is limited to assignments explicitly marked not_submitted")
+    print("with captured instructions. Nothing is submitted to the portal.")

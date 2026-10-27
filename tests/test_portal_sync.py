@@ -152,3 +152,65 @@ def test_assignment_extraction_flags_missing_description():
     content = _extract_assignment_instructions(_FakePage({}))
 
     assert "ASSIGNMENT_DESCRIPTION_NOT_FOUND" in content
+
+
+
+def test_pdf_attachment_text_is_extracted_with_authenticated_context():
+    import fitz
+    from college_assistant.portal_sync import _extract_pdf_text
+
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "ES-101 Assignment: Explain the boot sequence and GPIO voltage safety.")
+    payload = document.tobytes()
+    document.close()
+
+    class Response:
+        ok = True
+        def body(self):
+            return payload
+
+    class Request:
+        def get(self, url, timeout=None):
+            assert url == "https://learn3.sha.edu.eg/pluginfile.php/123/assignment.pdf"
+            return Response()
+
+    class Context:
+        request = Request()
+
+    class Page:
+        url = "https://learn3.sha.edu.eg/mod/assign/view.php?id=1"
+        context = Context()
+
+    extracted = _extract_pdf_text(Page(), "/pluginfile.php/123/assignment.pdf")
+    assert extracted is not None
+    assert "boot sequence" in extracted
+    assert "GPIO voltage safety" in extracted
+
+
+def test_pdf_attachment_without_text_returns_ocr_sentinel():
+    import fitz
+    from college_assistant.portal_sync import _extract_pdf_text
+
+    document = fitz.open()
+    document.new_page()
+    payload = document.tobytes()
+    document.close()
+
+    class Response:
+        ok = True
+        def body(self):
+            return payload
+
+    class Request:
+        def get(self, url, timeout=None):
+            return Response()
+
+    class Context:
+        request = Request()
+
+    class Page:
+        url = "https://learn3.sha.edu.eg/mod/assign/view.php?id=1"
+        context = Context()
+
+    assert _extract_pdf_text(Page(), "/pluginfile.php/123/scanned.pdf") == "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED"

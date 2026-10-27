@@ -162,15 +162,51 @@ def _split_instruction_chunks(instructions: str, max_chars: int = 4500) -> list[
         chunks.append(current)
     return chunks
 
+
+def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
+    """Retrieve evidence per numbered task to reduce query dilution."""
+    question_start = re.compile(r"^\s*(?:Question\s*)?\d{1,3}[.)]\s+", re.IGNORECASE)
+    context_start = re.compile(r"^\s*(?:Part\s+[A-Z]\b|Scenario\s+\d+\b|Section\s+\d+\b)", re.IGNORECASE)
+    context = []
+    questions = []
+    current_question = []
+
+    for line in chunk.splitlines():
+        if context_start.match(line):
+            if current_question:
+                questions.append("\n".join(current_question))
+                current_question = []
+            context.append(line.strip())
+        elif question_start.match(line):
+            if current_question:
+                questions.append("\n".join(current_question))
+            current_question = [line.strip()]
+        elif current_question:
+            current_question.append(line.strip())
+
+    if current_question:
+        questions.append("\n".join(current_question))
+
+    evidence = []
+    seen = set()
+    for question in (questions or [chunk]):
+        query = "\n".join([title, *context[-2:], question])[:1800]
+        for item in retrieve_course_evidence(course_id, query, top_k=2):
+            key = (item.source, item.location, item.text[:120])
+            if key not in seen:
+                seen.add(key)
+                evidence.append(item)
+            if len(evidence) >= 10:
+                return evidence
+    return evidence
+
 def _generate_solution_content(client, assignment: dict, instructions: str) -> str:
     """Generate bounded chunks separately and combine their answers for Word export."""
     chunks = _split_instruction_chunks(instructions)
     answers = []
     for index, chunk in enumerate(chunks, start=1):
-        evidence = retrieve_course_evidence(
-            str(assignment["course_id"]),
-            f"{assignment['title']}\n{chunk}",
-            top_k=6,
+        evidence = _retrieve_chunk_evidence(
+            str(assignment["course_id"]), assignment["title"], chunk
         )
         if evidence:
             evidence_text = "\n\n".join(

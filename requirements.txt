@@ -2,4 +2,7 @@ playwright>=1.50.0
 python-dotenv>=1.0.1
 openai>=1.60.0
 PyMuPDF>=1.25.0
+python-docx>=1.1.2
+python-pptx>=0.6.23
 pytest>=8.0.0
+pyinstaller>=6.11.0

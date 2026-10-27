@@ -212,3 +212,26 @@ def test_sanitizes_citations_that_do_not_match_retrieved_files():
     assert "[Source: lecture_02.pdf, page 4]" in sanitized
     assert "[Source: course_material_evidence]" not in sanitized
     assert "no matching course source retrieved" in sanitized
+
+
+def test_retrieves_course_evidence_separately_for_numbered_questions(monkeypatch):
+    from types import SimpleNamespace
+    from college_assistant import assignment_solutions
+
+    queries = []
+
+    def fake_retrieve(course_id, query, top_k):
+        queries.append(query)
+        return [SimpleNamespace(source="lecture.pdf", location="page 1", text=query[:100])]
+
+    monkeypatch.setattr(assignment_solutions, "retrieve_course_evidence", fake_retrieve)
+    evidence = assignment_solutions._retrieve_chunk_evidence(
+        "1327",
+        "ES-101",
+        "Part A - Essay Questions\n1. Explain SSH.\n2. Explain Samba."
+    )
+
+    assert len(queries) == 2
+    assert "Explain SSH" in queries[0]
+    assert "Explain Samba" in queries[1]
+    assert evidence

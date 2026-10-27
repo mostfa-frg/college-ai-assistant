@@ -107,8 +107,8 @@ def test_regeneration_allows_recovery_when_approved_file_is_missing(monkeypatch,
         "instructions_text": "Explain what an embedded system is and give an example.",
     })
     monkeypatch.setattr("college_assistant.assignment_solutions.SOLUTIONS_DIR", tmp_path)
-    monkeypatch.setattr("college_assistant.assignment_solutions.GROQ_API_KEY", "test-key")
-    monkeypatch.setattr("college_assistant.assignment_solutions.GROQ_MODEL", "test-model")
+    monkeypatch.setattr("college_assistant.assignment_solutions.LLM_API_KEY", "test-key")
+    monkeypatch.setattr("college_assistant.assignment_solutions.LLM_MODEL", "test-model")
 
     class FakeCompletions:
         def create(self, **kwargs):

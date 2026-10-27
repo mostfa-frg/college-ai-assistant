@@ -235,3 +235,52 @@ def test_retrieves_course_evidence_separately_for_numbered_questions(monkeypatch
     assert "Explain SSH" in queries[0]
     assert "Explain Samba" in queries[1]
     assert evidence
+
+
+def test_task_chunks_preserve_all_numbered_questions_and_section_context():
+    from college_assistant.assignment_solutions import _split_task_chunks
+
+    source = (
+        "Part A - Essay Questions\n"
+        "1. Explain the host and target.\n"
+        "A detailed answer prompt.\n"
+        "2. Explain safe setup.\n"
+        "Part B - MCQs\n"
+        "1. Which method is best?\n"
+        "A. SSH\nB. VNC\nC. Samba\n"
+        "Scenario 1 - Safe Setup\n"
+        "1. What should be checked first?\n"
+        "2. Explain the boot sequence."
+    )
+    chunks = _split_task_chunks(source, max_chars=180)
+    joined = "\n".join(chunks)
+
+    assert "Part A - Essay Questions" in joined
+    assert "Part B - MCQs" in joined
+    assert "Scenario 1 - Safe Setup" in joined
+    assert "Explain the host and target." in joined
+    assert "Explain safe setup." in joined
+    assert "Which method is best?" in joined
+    assert "What should be checked first?" in joined
+    assert "Explain the boot sequence." in joined
+    assert all(len(chunk) <= 2200 for chunk in chunks)
+
+
+def test_word_export_does_not_use_auto_numbering_for_question_lines(tmp_path):
+    from docx import Document
+    from college_assistant.assignment_solutions import _write_word_document
+
+    markdown = tmp_path / "numbering.md"
+    markdown.write_text(
+        "# Draft\n\n## Part A\n\n1. First question\n\n"
+        "2. Second question\n\n## Part B\n\n1. First MCQ\n",
+        encoding="utf-8",
+    )
+    word_path = _write_word_document(markdown)
+    document = Document(word_path)
+    numbered = [p for p in document.paragraphs if p.text[:1].isdigit()]
+
+    assert [p.text for p in numbered] == [
+        "1. First question", "2. Second question", "1. First MCQ"
+    ]
+    assert all(p.style.name != "List Number" for p in numbered)

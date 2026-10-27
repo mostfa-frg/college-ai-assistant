@@ -126,6 +126,11 @@ def test_regeneration_allows_recovery_when_approved_file_is_missing(monkeypatch,
 
     monkeypatch.setattr("college_assistant.assignment_solutions.OpenAI", FakeClient)
     monkeypatch.setattr("college_assistant.assignment_solutions.save_solution_draft", lambda assignment_id, path: None)
+    # This test covers recovery of a missing approved file, not course-material retrieval.
+    monkeypatch.setattr(
+        "college_assistant.assignment_solutions.retrieve_course_evidence",
+        lambda *args, **kwargs: [],
+    )
 
     result = regenerate_assignment_draft(assignment_id=9)
     assert result["path"].endswith("_v2.docx")

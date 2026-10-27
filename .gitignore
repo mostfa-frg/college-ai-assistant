@@ -14,3 +14,10 @@ htmlcov/
 /data/summaries/
 
 /data/solutions/
+
+# Local Windows packaging output
+/build/
+/dist/
+/.playwright-browsers/
+*.spec
+CollegeAIAssistant-Windows.zip

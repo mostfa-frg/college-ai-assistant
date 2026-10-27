@@ -7,7 +7,6 @@ from playwright.sync_api import sync_playwright
 
 from college_assistant.browser_setup import ensure_chromium_installed
 from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
-from college_assistant.assignment_solutions import generate_pending_drafts
 from college_assistant.materials_sync import sync_course_materials
 from college_assistant.storage.repositories import (
     finish_sync_run,
@@ -147,7 +146,7 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
         detail_page.close()
 
 
-def scan_course(page, course_id: str) -> dict:
+def scan_course(page, course_id: str, *, download_materials: bool = False) -> dict:
     course_url = urljoin(BASE_URL, f"course/view.php?id={course_id}")
     previous_scan = get_course_scan_time(course_id)
     response = page.goto(course_url, wait_until="domcontentloaded", timeout=60000)
@@ -237,10 +236,11 @@ def scan_course(page, course_id: str) -> dict:
 
     save_course_scan(course_id, course_title)
     material_sync = {"downloaded": 0, "failed": 0}
-    try:
-        material_sync = sync_course_materials(page.context, course_id, course_title)
-    except Exception as error:
-        print(f"Warning: material download failed for {course_title}: {error}")
+    if download_materials:
+        try:
+            material_sync = sync_course_materials(page.context, course_id, course_title)
+        except Exception as error:
+            print(f"Warning: material download failed for {course_title}: {error}")
     return {
         "course_id": course_id,
         "course_title": course_title,
@@ -253,7 +253,7 @@ def scan_course(page, course_id: str) -> dict:
     }
 
 
-def run_sync() -> list[dict]:
+def run_sync(*, download_materials: bool = False, auto_generate_drafts: bool = False) -> list[dict]:
     if not PORTAL_STATE_FILE.is_file():
         raise FileNotFoundError(
             f"Portal session not found: {PORTAL_STATE_FILE}. Run login.py first."
@@ -272,19 +272,18 @@ def run_sync() -> list[dict]:
             page = context.new_page()
             try:
                 for course_id in COURSE_IDS:
-                    results.append(scan_course(page, course_id))
+                    results.append(scan_course(page, course_id, download_materials=download_materials))
             finally:
                 context.close()
                 browser.close()
         finish_sync_run(run_id)
-        try:
+        if auto_generate_drafts:
+            from college_assistant.assignment_solutions import generate_pending_drafts
             generated = generate_pending_drafts()
             if generated:
                 print("\nAssignment drafts generated for review:")
                 for item in generated:
                     print(f"  [{item['id']}] {item['title']} -> {item['path']}")
-        except Exception as error:
-            print(f"\nWarning: assignment draft generation failed: {error}")
         return results
     except Exception as error:
         finish_sync_run(run_id, str(error)[:1000])

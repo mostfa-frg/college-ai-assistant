@@ -98,7 +98,9 @@ def main() -> None:
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         print(f"Generated draft version {result['version']} for {result['title']}.")
-        print(f"Saved locally to: {Path(result['path']).resolve()}")
+        print(f"Markdown draft: {Path(result['path']).resolve()}")
+        if result.get("word_path"):
+            print(f"Word document: {Path(result['word_path']).resolve()}")
         print("Nothing was submitted to Moodle. Review the draft before approving it.")
     else:
         print("Starting a manual portal sync. No background process will be started.")

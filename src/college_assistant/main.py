@@ -26,6 +26,23 @@ def _list_assignments() -> None:
             print(f'    Approved copy: {item["approved_solution_path"]}')
 
 
+def _show_instructions(assignment_id: int) -> None:
+    """Print the exact instructions currently stored for an assignment."""
+    item = get_assignment(assignment_id)
+    if not item:
+        raise SystemExit(f"Assignment ID {assignment_id} was not found.")
+    instructions = (item.get("instructions_text") or "").strip()
+    print(f'Assignment: {item["title"]}')
+    print(f'Submission status: {item["submission_status"]}')
+    print(f'Solution status: {item["solution_status"]}')
+    print(f'Captured instruction characters: {len(instructions)}')
+    print("-" * 72)
+    if not instructions:
+        print("No instructions are stored for this assignment.")
+    else:
+        print(instructions)
+
+
 def _show_solution(assignment_id: int) -> None:
     item = get_assignment(assignment_id)
     if not item:
@@ -57,6 +74,7 @@ def main() -> None:
         description="Check college portal updates and manage assignment solutions.")
     parser.add_argument("--init-db", action="store_true", help="Initialize the local database.")
     parser.add_argument("--assignments", action="store_true", help="List recorded assignments and saved solutions.")
+    parser.add_argument("--show-instructions", type=int, metavar="ID", help="Print the instructions stored for an assignment.")
     parser.add_argument("--show-solution", type=int, metavar="ID", help="Print the saved draft or approved solution.")
     parser.add_argument("--approve-solution", type=int, metavar="ID", help="Approve and permanently save a draft solution.")
     args = parser.parse_args()
@@ -66,6 +84,8 @@ def main() -> None:
         print("Local database initialized successfully.")
     elif args.assignments:
         _list_assignments()
+    elif args.show_instructions is not None:
+        _show_instructions(args.show_instructions)
     elif args.show_solution is not None:
         _show_solution(args.show_solution)
     elif args.approve_solution is not None:

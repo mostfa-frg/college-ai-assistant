@@ -62,6 +62,15 @@ def generate_pending_drafts() -> list[dict]:
         if len(instructions) < 30:
             skipped.append(assignment["title"])
             continue
+        # Do not draft from a page shell or from filenames when actual file
+        # contents have not been extracted. This prevents plausible-looking
+        # answers to incomplete assignment sources.
+        if (
+            "ASSIGNMENT_DESCRIPTION_NOT_FOUND" in instructions
+            or "ATTACHMENT_FILES_DETECTED_NOT_EXTRACTED" in instructions
+        ):
+            skipped.append(assignment["title"])
+            continue
 
         response = client.chat.completions.create(
             model=GROQ_MODEL,

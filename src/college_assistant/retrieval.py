@@ -34,11 +34,11 @@ def _split_text(text: str, source: str) -> list[EvidenceChunk]:
     """Split extracted material into bounded, source-labelled passages."""
     chunks: list[EvidenceChunk] = []
     # Keep page markers when extracted from PDFs so citations can point back to a page.
-    page_parts = re.split(r"(?=---\s*Page\s+\d+\s*---)", text)
+    page_parts = re.split(r"(?=---\s*(?:Page|Slide)\s+\d+\s*---)", text)
     for page_part in page_parts:
-        page_match = re.search(r"---\s*Page\s+(\d+)\s*---", page_part)
-        location = f"page {page_match.group(1)}" if page_match else "text"
-        body = re.sub(r"---\s*Page\s+\d+\s*---", "", page_part).strip()
+        page_match = re.search(r"---\s*(Page|Slide)\s+(\d+)\s*---", page_part)
+        location = f"{page_match.group(1).casefold()} {page_match.group(2)}" if page_match else "text"
+        body = re.sub(r"---\s*(?:Page|Slide)\s+\d+\s*---", "", page_part).strip()
         if not body:
             continue
         paragraphs = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]

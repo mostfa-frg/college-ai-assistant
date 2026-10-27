@@ -207,12 +207,29 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
         if "INSUFFICIENT_ASSIGNMENT_CONTENT" in content.upper():
             raise ValueError(f"The model reported insufficient source in chunk {index}/{len(chunks)}.")
         if content.strip() != "NO_TASKS_IN_THIS_CHUNK":
-            answers.append(content.strip())
+            answers.append(_sanitize_citations(content.strip(), evidence))
     combined = "\n\n".join(answers).strip()
     if not combined or _is_placeholder_draft(combined):
         raise ValueError("The model returned empty or template-like content; no solution was saved.")
     return combined
 
+
+
+def _sanitize_citations(content: str, evidence) -> str:
+    """Prevent the model from presenting invented placeholders as real citations."""
+    allowed_sources = {item.source.casefold() for item in evidence}
+    citation_pattern = re.compile(
+        r"\[Source:\s*([^,\]\n]+?)(?:,\s*(?:page|slide)\s*\d+)?\]",
+        flags=re.IGNORECASE,
+    )
+
+    def replace_citation(match):
+        source = match.group(1).strip().casefold()
+        if source in allowed_sources:
+            return match.group(0)
+        return "(general background; no matching course source retrieved)"
+
+    return citation_pattern.sub(replace_citation, content)
 
 def _save_word_only(assignment: dict, content: str, version: int | None = None) -> dict:
     """Convert temporary Markdown to Word, then retain only the .docx artifact."""

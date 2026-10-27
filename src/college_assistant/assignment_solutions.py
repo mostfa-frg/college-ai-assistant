@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 from college_assistant.config import GROQ_API_KEY, GROQ_MODEL, SOLUTIONS_DIR
 from college_assistant.storage.repositories import list_assignments, save_solution_draft
@@ -286,6 +287,33 @@ def _retrieve_chunk_evidence(course_id: str, title: str, chunk: str):
                 return evidence
     return evidence
 
+
+def _create_completion_with_rate_limit_retry(client, *, model, messages, max_completion_tokens):
+    """Retry transient Groq rate limits while reducing the request budget if needed."""
+    token_budget = max_completion_tokens
+    last_error = None
+    for attempt in range(4):
+        try:
+            return client.chat.completions.create(
+                model=model,
+                temperature=0.2,
+                max_completion_tokens=token_budget,
+                messages=messages,
+            )
+        except RateLimitError as exc:
+            last_error = exc
+            if attempt == 3:
+                break
+            # TPM limits can be transient; progressively lower the requested output
+            # budget and give the rolling token window time to recover.
+            token_budget = max(500, int(token_budget * 0.75))
+            time.sleep(1.5 * (attempt + 1))
+    raise ValueError(
+        "Groq rate limit persisted after 4 attempts. No solution was saved. "
+        "Wait a little before retrying, or choose a model/tier with more available TPM."
+    ) from last_error
+
+
 def _generate_solution_content(client, assignment: dict, instructions: str) -> str:
     """Generate bounded chunks separately and combine their answers for Word export."""
     chunks = _split_task_chunks(instructions, max_chars=700)
@@ -298,36 +326,35 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
             str(assignment["course_id"]), assignment["title"], chunk
         )
         if evidence:
+            # Keep prompts comfortably below the model's 8k TPM budget.
             evidence_text = "\n\n".join(
-                f"[Source: {item.source}, {item.location}]\n{item.text}"
-                for item in evidence
+                f"[Source: {item.source}, {item.location}]\n{item.text[:1000]}"
+                for item in evidence[:3]
             )
         else:
             evidence_text = (
                 "No matching course-material passages were found in the local material "
                 "library for this chunk. Do not present course-specific details as confirmed."
             )
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            temperature=0.2,
-            max_completion_tokens=2400,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content":
-                    f"Assignment title: {assignment['title']}\n"
-                    f"Course ID: {assignment['course_id']}\n"
-                    f"Source chunk {index} of {len(chunks)}. It may contain only part of the full assignment.\n"
-                    "Answer every actual task in this chunk, preserving its section and numbering. "
-                    "Keep answers concise but complete: essays should normally be 250-400 words, "
-                    "MCQs and True/False items 1-3 sentences, and scenario subquestions focused. "
-                    "Do not repeat the question at length or add unrelated background. "
-                    "Use the retrieved course evidence below, cite sources inline, and clearly flag "
-                    "unsupported course-specific details instead of guessing. If the chunk contains "
-                    "no task, return exactly NO_TASKS_IN_THIS_CHUNK. Do not claim submission.\n\n"
-                    f"<assignment_instructions>\n{chunk}\n</assignment_instructions>\n\n"
-                    f"<course_material_evidence>\n{evidence_text}\n</course_material_evidence>"
-                },
-            ],
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content":
+                f"Assignment title: {assignment['title']}\n"
+                f"Course ID: {assignment['course_id']}\n"
+                f"Source chunk {index} of {len(chunks)}. It may contain only part of the full assignment.\n"
+                "Answer every actual task in this chunk, preserving its section and numbering. "
+                "Keep answers concise but complete: essays should normally be 150-250 words, "
+                "MCQs and True/False items 1-3 sentences, and scenario subquestions focused. "
+                "Do not repeat the question at length or add unrelated background. "
+                "Use the retrieved course evidence below, cite sources inline, and clearly flag "
+                "unsupported course-specific details instead of guessing. If the chunk contains "
+                "no task, return exactly NO_TASKS_IN_THIS_CHUNK. Do not claim submission.\n\n"
+                f"<assignment_instructions>\n{chunk}\n</assignment_instructions>\n\n"
+                f"<course_material_evidence>\n{evidence_text}\n</course_material_evidence>"
+            },
+        ]
+        response = _create_completion_with_rate_limit_retry(
+            client, model=GROQ_MODEL, messages=messages, max_completion_tokens=1400
         )
         choice = response.choices[0]
         if getattr(choice, "finish_reason", None) == "length":
@@ -347,10 +374,10 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
                 continue
 
             # A single long task gets one concise retry with a larger output allowance.
-            retry = client.chat.completions.create(
+            retry = _create_completion_with_rate_limit_retry(
+                client,
                 model=GROQ_MODEL,
-                temperature=0.2,
-                max_completion_tokens=4000,
+                max_completion_tokens=1800,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content":

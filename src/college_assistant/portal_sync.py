@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from playwright.sync_api import sync_playwright
 
 from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
-from college_assistant.assignment_solutions import generate_pending_drafts
+from college_assistant.assignment_solutions import generate_pending_drafts\nfrom college_assistant.materials_sync import sync_course_materials
 from college_assistant.storage.repositories import (
     finish_sync_run,
     get_activity,
@@ -234,6 +234,11 @@ def scan_course(page, course_id: str) -> dict:
             })
 
     save_course_scan(course_id, course_title)
+    material_sync = {"downloaded": 0, "failed": 0}
+    try:
+        material_sync = sync_course_materials(page.context, course_id, course_title)
+    except Exception as error:
+        print(f"Warning: material download failed for {course_title}: {error}")
     return {
         "course_id": course_id,
         "course_title": course_title,
@@ -241,6 +246,8 @@ def scan_course(page, course_id: str) -> dict:
         "activities_seen": len(seen),
         "assignments": assignments,
         "changes": changes,
+        "materials_downloaded": material_sync["downloaded"],
+        "material_download_failures": material_sync["failed"],
     }
 
 
@@ -291,6 +298,10 @@ def print_report(results: list[dict]) -> None:
         marker = " (baseline scan)" if result["first_scan"] else ""
         print(f"\n{result['course_title']}{marker}")
         print(f"  Activities checked: {result['activities_seen']}")
+        if "materials_downloaded" in result:
+            print(f"  Course materials downloaded/updated: {result['materials_downloaded']}")
+            if result.get("material_download_failures"):
+                print(f"  Material files skipped/failed: {result['material_download_failures']}")
         if not result["changes"]:
             print("  No new or changed activities detected.")
         for change in result["changes"]:

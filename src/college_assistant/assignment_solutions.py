@@ -6,7 +6,7 @@ from pathlib import Path
 
 from openai import OpenAI, RateLimitError
 
-from college_assistant.config import GROQ_API_KEY, GROQ_MODEL, SOLUTIONS_DIR
+from college_assistant.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_PROVIDER, SOLUTIONS_DIR
 from college_assistant.storage.repositories import list_assignments, save_solution_draft
 from college_assistant.retrieval import retrieve_course_evidence
 
@@ -354,7 +354,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
             },
         ]
         response = _create_completion_with_rate_limit_retry(
-            client, model=GROQ_MODEL, messages=messages, max_completion_tokens=1400
+            client, model=LLM_MODEL, messages=messages, max_completion_tokens=1400
         )
         choice = response.choices[0]
         if getattr(choice, "finish_reason", None) == "length":
@@ -376,7 +376,7 @@ def _generate_solution_content(client, assignment: dict, instructions: str) -> s
             # A single long task gets one concise retry with a larger output allowance.
             retry = _create_completion_with_rate_limit_retry(
                 client,
-                model=GROQ_MODEL,
+                model=LLM_MODEL,
                 max_completion_tokens=1800,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -448,9 +448,9 @@ def _save_word_only(assignment: dict, content: str, version: int | None = None) 
 
 def generate_pending_drafts() -> list[dict]:
     """Generate Word-only drafts for explicitly unsubmitted assignments."""
-    if not GROQ_API_KEY or not GROQ_MODEL:
+    if not LLM_API_KEY or not LLM_MODEL:
         return []
-    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
     generated = []
     skipped = []
     for assignment in list_assignments():
@@ -505,10 +505,10 @@ def regenerate_assignment_draft(assignment_id: int) -> dict:
         "PDF_TEXT_EXTRACTION_EMPTY_OCR_REQUIRED",
     )):
         raise ValueError("Stored assignment source is incomplete or requires OCR.")
-    if not GROQ_API_KEY or not GROQ_MODEL:
-        raise ValueError("GROQ_API_KEY or GROQ_MODEL is not configured in the local .env.")
+    if not LLM_API_KEY or not LLM_MODEL:
+        raise ValueError("LLM_API_KEY or LLM_MODEL is not configured in the local .env.")
 
-    client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
+    client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
     content = _generate_solution_content(client, assignment, instructions[:24000])
     SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
     stem = f"assignment_{assignment_id}_{_safe_stem(assignment['title'])}_draft"

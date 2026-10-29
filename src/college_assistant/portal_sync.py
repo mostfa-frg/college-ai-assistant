@@ -158,6 +158,8 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
         else:
             status = "unknown"
         return _extract_assignment_instructions(detail_page), status
+    except RuntimeError:
+        raise
     except Exception:
         return None, "unknown"
     finally:

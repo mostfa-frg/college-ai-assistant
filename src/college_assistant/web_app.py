@@ -87,12 +87,10 @@ def check_assignments():
 def complete_login():
     """Verify/save SSO only after the user confirms they've finished signing in."""
     try:
-        if not complete_portal_login_from_web():
+        verified, detail = complete_portal_login_from_web()
+        if not verified:
             return RedirectResponse(
-                url="/?error=" + quote(
-                    "Moodle has not confirmed your login yet. Finish Microsoft sign-in in the open browser, then click the confirmation button again.",
-                    safe="",
-                ),
+                url="/?error=" + quote(detail, safe=""),
                 status_code=303,
             )
         run_sync()

@@ -36,10 +36,18 @@
   <div class="notice" role="status">
     {% set notice = request.query_params.get('notice') %}
     {% if notice == 'check-complete' %}Moodle check finished. Assignment information has been refreshed.
+    {% elif notice == 'login-opened' %}The Moodle sign-in browser is open. Complete the Microsoft sign-in there, return here, then click the confirmation button below. The app will not reload the login page while you type.
     {% elif notice == 'draft-generated' %}Draft generated. Open the Word file and review it before use.
     {% elif notice == 'marked-reviewed' %}Local review recorded. Nothing was submitted to Moodle.
     {% else %}Action completed.{% endif %}
   </div>
+  {% if request.query_params.get('notice') == 'login-opened' %}
+  <div class="notice" style="background:#e8f1fa;border-color:#c6d9ed;color:#234b70">
+    <strong>Finished signing in?</strong>
+    <p>Only click this after Microsoft sign-in has completed. If verification fails, the browser will remain open so you can finish signing in and retry.</p>
+    <form action="/actions/login/complete" method="post"><button type="submit">I've finished signing in — verify Moodle</button></form>
+  </div>
+  {% endif %}
   {% endif %}
   <section class="stats">
     <div class="stat"><div class="label">Assignments tracked</div><strong>{{ counts.total }}</strong></div>

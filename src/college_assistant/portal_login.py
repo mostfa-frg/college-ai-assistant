@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-import time
 from urllib.parse import urlparse
 
 from college_assistant.browser_setup import ensure_chromium_installed
 from college_assistant.config import BASE_URL, COURSE_IDS, DATA_DIR, PORTAL_STATE_FILE
 
+# The dashboard uses an explicit two-step SSO flow. Keep the browser alive between
+# HTTP requests so the user can complete Microsoft login at their own pace.
+_login_runtime = None
+
 
 def _open_login_browser():
-    """Create a visible browser context for the college portal login."""
     from playwright.sync_api import sync_playwright
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,112 +27,103 @@ def _open_login_browser():
         raise
 
 
-def save_portal_login() -> None:
-    """Open a browser for sign-in and save the session in the user's local data folder."""
-    print("A browser will open for Moodle sign-in.")
-    print("Use the official college portal. Verify any certificate warning with the college.")
-    playwright, browser, context, page = _open_login_browser()
-    try:
-        print("Current URL:", page.url)
-        input("Complete sign-in in the browser, then press Enter here...")
-        print("After sign-in:", page.url)
-        print("Page title:", page.title())
-        context.storage_state(path=str(PORTAL_STATE_FILE))
-        print(f"Local Moodle session saved to: {PORTAL_STATE_FILE}")
-        print("Treat this file like a password. Do not share it.")
-    finally:
-        context.close()
-        browser.close()
-        playwright.stop()
-
-
 def _is_portal_authenticated(page) -> bool:
-    """Check whether a page is an authenticated Moodle page."""
     try:
         parsed = urlparse(page.url)
-        if parsed.hostname != urlparse(BASE_URL).hostname:
-            return False
-        if "/login/" in parsed.path:
+        if parsed.hostname != urlparse(BASE_URL).hostname or "/login/" in parsed.path:
             return False
         body = " ".join(page.locator("body").inner_text(timeout=2500).split()).casefold()
         if not body or "log in using your account on" in body:
             return False
         if "you are not logged in" in body or "invalid login" in body:
             return False
-        return bool(
-            page.locator(
-                'a[href*="/mod/"], #page-content, [role="main"], .course-content, '
-                '[data-region="user-menu"], .usermenu, #user-menu-toggle'
-            ).count()
-        )
+        return bool(page.locator(
+            'a[href*="/mod/"], #page-content, [role="main"], .course-content, '
+            '[data-region="user-menu"], .usermenu, #user-menu-toggle'
+        ).count())
     except Exception:
         return False
 
 
-def _probe_authenticated_session(page) -> bool:
-    """Verify the saved browser context only after interactive SSO has finished."""
-    course_id = COURSE_IDS[0]
+def start_portal_login_from_web() -> None:
+    """Open SSO browser and return immediately; do not poll, navigate, or close it."""
+    global _login_runtime
+    close_pending_portal_login()
+    playwright, browser, context, page = _open_login_browser()
+    _login_runtime = {
+        "playwright": playwright,
+        "browser": browser,
+        "context": context,
+        "page": page,
+    }
+
+
+def complete_portal_login_from_web() -> bool:
+    """Called only after the user clicks the dashboard's finish-login button."""
+    global _login_runtime
+    if not _login_runtime:
+        raise RuntimeError("No sign-in window is active. Click Start Moodle sign-in first.")
+
+    runtime = _login_runtime
+    context = runtime["context"]
     try:
+        # Do not interfere with the Microsoft form while the user is typing.
+        for page in list(context.pages):
+            if _is_portal_authenticated(page):
+                context.storage_state(path=str(PORTAL_STATE_FILE))
+                return True
+
+        # Only after the user explicitly says they finished do we navigate once
+        # to a protected course page to test whether SSO established Moodle cookies.
+        page = runtime["page"]
         page.goto(
-            f"{BASE_URL}course/view.php?id={course_id}",
+            f"{BASE_URL}course/view.php?id={COURSE_IDS[0]}",
             wait_until="domcontentloaded",
             timeout=30_000,
         )
-        page.wait_for_timeout(1000)
-        return _is_portal_authenticated(page)
-    except Exception:
-        return False
+        page.wait_for_timeout(800)
+        if not _is_portal_authenticated(page):
+            return False
+        context.storage_state(path=str(PORTAL_STATE_FILE))
+        return True
+    finally:
+        close_pending_portal_login()
 
 
-def save_portal_login_from_web(*, timeout_ms: int = 300_000) -> None:
-    """Wait without navigating during interactive Microsoft SSO, then verify Moodle once."""
-    print("Moodle sign-in is required. Complete Microsoft sign-in in the browser window.")
-    print("The app will not reload the login page while you enter your email or password.")
-    print("After sign-in, the app verifies Moodle access and saves the session.")
-    playwright, browser, context, first_page = _open_login_browser()
-    deadline = time.monotonic() + timeout_ms / 1000
-    popup_was_seen = False
-    popup_closed_at = None
-    verified = False
+def close_pending_portal_login() -> None:
+    """Close a pending sign-in browser safely when explicitly replacing/finishing it."""
+    global _login_runtime
+    runtime, _login_runtime = _login_runtime, None
+    if not runtime:
+        return
+    for key in ("context", "browser"):
+        try:
+            runtime[key].close()
+        except Exception:
+            pass
     try:
-        while time.monotonic() < deadline:
-            pages = list(context.pages)
-            if len(pages) > 1:
-                popup_was_seen = True
+        runtime["playwright"].stop()
+    except Exception:
+        pass
 
-            # First accept an authenticated portal page if SSO redirected the same tab.
-            for page in pages:
-                if _is_portal_authenticated(page):
-                    context.storage_state(path=str(PORTAL_STATE_FILE))
-                    print("Verified authenticated Moodle session saved.")
-                    return
 
-            # If SSO opened a popup, do not touch the main Moodle tab while it is open.
-            # Once the popup closes, give the portal a moment to process the callback,
-            # then perform one protected-page probe (not repeated reloads).
-            if popup_was_seen and len(pages) == 1 and popup_closed_at is None:
-                popup_closed_at = time.monotonic() + 2.0
-
-            if popup_closed_at is not None and time.monotonic() >= popup_closed_at and not verified:
-                verified = True
-                if first_page in context.pages and _probe_authenticated_session(first_page):
-                    context.storage_state(path=str(PORTAL_STATE_FILE))
-                    print("Verified authenticated Moodle session saved.")
-                    return
-                raise RuntimeError(
-                    "The Microsoft sign-in window closed, but Moodle did not establish an "
-                    "authenticated session. The app did not save an invalid session. "
-                    "Please retry and check whether Microsoft displayed an error or blocked "
-                    "the college portal callback."
-                )
-
-            time.sleep(0.5)
-
-        raise RuntimeError(
-            "Sign-in timed out. The browser was left alone while you entered your credentials. "
-            "Complete all Microsoft prompts and wait for the college portal callback."
-        )
+def save_portal_login() -> None:
+    """Legacy CLI login helper; user confirms completion in terminal."""
+    print("A browser will open for Moodle/Microsoft sign-in.")
+    playwright, browser, context, page = _open_login_browser()
+    try:
+        input("Complete sign-in in the browser, then press Enter here...")
+        context.storage_state(path=str(PORTAL_STATE_FILE))
     finally:
         context.close()
         browser.close()
         playwright.stop()
+
+
+def save_portal_login_from_web(*, timeout_ms: int = 300_000) -> None:
+    """Compatibility wrapper: use the explicit dashboard flow instead of blocking."""
+    start_portal_login_from_web()
+    raise RuntimeError(
+        "A sign-in browser is open. Complete sign-in, then click 'I've finished signing in' "
+        "in the dashboard to verify and save the session."
+    )

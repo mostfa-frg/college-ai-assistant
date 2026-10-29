@@ -66,28 +66,31 @@ def complete_portal_login_from_web() -> bool:
 
     runtime = _login_runtime
     context = runtime["context"]
-    try:
-        # Do not interfere with the Microsoft form while the user is typing.
-        for page in list(context.pages):
-            if _is_portal_authenticated(page):
-                context.storage_state(path=str(PORTAL_STATE_FILE))
-                return True
+    # Do not interfere with the Microsoft form while the user is typing.
+    for page in list(context.pages):
+        if _is_portal_authenticated(page):
+            context.storage_state(path=str(PORTAL_STATE_FILE))
+            close_pending_portal_login()
+            return True
 
-        # Only after the user explicitly says they finished do we navigate once
-        # to a protected course page to test whether SSO established Moodle cookies.
-        page = runtime["page"]
+    # Only after the user explicitly clicks "I've finished" do we navigate once
+    # to a protected course page to test whether SSO established Moodle cookies.
+    page = runtime["page"]
+    try:
         page.goto(
             f"{BASE_URL}course/view.php?id={COURSE_IDS[0]}",
             wait_until="domcontentloaded",
             timeout=30_000,
         )
         page.wait_for_timeout(800)
-        if not _is_portal_authenticated(page):
-            return False
-        context.storage_state(path=str(PORTAL_STATE_FILE))
-        return True
-    finally:
-        close_pending_portal_login()
+    except Exception:
+        # Keep the browser alive so the user can finish/retry SSO.
+        return False
+    if not _is_portal_authenticated(page):
+        return False
+    context.storage_state(path=str(PORTAL_STATE_FILE))
+    close_pending_portal_login()
+    return True
 
 
 def close_pending_portal_login() -> None:

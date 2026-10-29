@@ -68,7 +68,7 @@ def check_assignments():
         return RedirectResponse(url="/?notice=login-opened", status_code=303)
 
     try:
-        run_sync()
+        results = run_sync()
     except RuntimeError as exc:
         if "portal session expired" not in str(exc).casefold():
             return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
@@ -80,7 +80,11 @@ def check_assignments():
         return RedirectResponse(url="/?notice=login-opened", status_code=303)
     except (FileNotFoundError, OSError, TimeoutError) as exc:
         return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
-    return RedirectResponse(url="/?notice=check-complete", status_code=303)
+    change_count = sum(len(course.get("changes", [])) for course in results)
+    return RedirectResponse(
+        url=f"/?notice=check-complete&changes={change_count}",
+        status_code=303,
+    )
 
 
 @app.post("/actions/login/complete")
@@ -93,10 +97,14 @@ def complete_login():
                 url="/?error=" + quote(detail, safe=""),
                 status_code=303,
             )
-        run_sync()
+        results = run_sync()
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
         return RedirectResponse(url="/?error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
-    return RedirectResponse(url="/?notice=check-complete", status_code=303)
+    change_count = sum(len(course.get("changes", [])) for course in results)
+    return RedirectResponse(
+        url=f"/?notice=check-complete&changes={change_count}",
+        status_code=303,
+    )
 
 
 @app.post("/actions/generate/{assignment_id}")

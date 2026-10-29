@@ -26,7 +26,7 @@ python -m pip install -e .
 python -m uvicorn college_assistant.web_app:app --reload
 ```
 
-Then open http://127.0.0.1:8000. Sign in to Moodle through CLI menu option 4 before using the dashboard's Moodle refresh action. The dashboard can show assignments and instructions, generate eligible Word drafts, download drafts, and mark drafts reviewed locally.
+Then open http://127.0.0.1:8000. When you use the dashboard's Moodle refresh action, it opens a sign-in browser automatically if the session is missing or expired, saves the refreshed session locally, and retries. The dashboard can show assignments and instructions, generate eligible Word drafts, download drafts, and mark drafts reviewed locally.
 
 **Safety:** Draft generation is available only for assignments explicitly marked `not_submitted`. Reviewing a draft records a local status; nothing is submitted to Moodle. Keep the server on localhost and do not expose it to the internet or an untrusted network. See [WEB_DASHBOARD.md](WEB_DASHBOARD.md) for details.
 

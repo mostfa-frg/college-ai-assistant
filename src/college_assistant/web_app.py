@@ -94,12 +94,12 @@ def complete_login():
         verified, detail = complete_portal_login_from_web()
         if not verified:
             return RedirectResponse(
-                url="/?error=" + quote(detail, safe=""),
+                url="/?login_error=" + quote(detail, safe=""),
                 status_code=303,
             )
         results = run_sync()
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
-        return RedirectResponse(url="/?error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
+        return RedirectResponse(url="/?login_error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
     change_count = sum(len(course.get("changes", [])) for course in results)
     return RedirectResponse(
         url=f"/?notice=check-complete&changes={change_count}",

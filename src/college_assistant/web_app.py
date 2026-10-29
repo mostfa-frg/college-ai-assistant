@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -70,13 +71,9 @@ def check_assignments():
             save_portal_login_from_web()
             run_sync()
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Moodle could not be refreshed. If a sign-in browser opened, complete "
-                f"the login and try again. Details: {exc}"
-            ),
-        ) from exc
+        # Keep users in the dashboard instead of dumping a raw JSON error page.
+        message = "Moodle could not be refreshed: " + str(exc)
+        return RedirectResponse(url="/?error=" + quote(message, safe=""), status_code=303)
     return RedirectResponse(url="/?notice=check-complete", status_code=303)
 
 

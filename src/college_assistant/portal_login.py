@@ -42,17 +42,40 @@ def save_portal_login() -> None:
 
 
 def save_portal_login_from_web(*, timeout_ms: int = 180_000) -> None:
-    """Open Moodle sign-in and wait for the user to finish, without requiring a terminal prompt."""
+    """Open Moodle sign-in and wait until the login form is actually gone."""
     print("Moodle sign-in is required. Complete sign-in in the browser window that opens.")
+    print("The browser will remain open while you sign in.")
     print("Verify any certificate warning with the college before entering credentials.")
     playwright, browser, context, page = _open_login_browser()
     try:
-        if "/login/" in page.url:
-            page.wait_for_url(lambda url: "/login/" not in str(url), timeout=timeout_ms)
-        # A successful sign-in should land on a portal page, not the login form.
-        if "/login/" in page.url:
-            raise RuntimeError("Moodle sign-in was not completed.")
+        # URL alone is not a reliable signal: Moodle can render its login form at
+        # /my/ or keep the same URL after an unsuccessful/partial login attempt.
+        page.wait_for_function(
+            """() => {
+                const username = document.querySelector(
+                    'input[name="username"], input#username, input[name="email"]'
+                );
+                const password = document.querySelector(
+                    'input[name="password"], input#password'
+                );
+                const loginForm = document.querySelector(
+                    'form#login, form[action*="login"], form[action*="signin"]'
+                );
+                const url = window.location.href.toLowerCase();
+                const loginText = /log in to the site|you are not logged in|invalid login/i
+                    .test(document.body?.innerText || "");
+                return !username && !password && !loginForm &&
+                    !url.includes("/login/") && !loginText;
+            }""",
+            timeout=timeout_ms,
+        )
+        # Save only after the browser visibly leaves the login state.
         context.storage_state(path=str(PORTAL_STATE_FILE))
+    except Exception as exc:
+        raise RuntimeError(
+            "Moodle sign-in was not detected before the timeout. Keep the login "
+            "browser open, complete sign-in, and make sure it returns to the portal."
+        ) from exc
     finally:
         context.close()
         browser.close()

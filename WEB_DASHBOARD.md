@@ -13,7 +13,7 @@ python -m uvicorn college_assistant.web_app:app --reload
 
 Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
 
-Click **Check Moodle** in the dashboard. If no saved session exists or Moodle has expired it, the app opens a visible browser window for Microsoft sign-in, keeps it open through any identity-provider redirects, waits until it returns to an authenticated page on the college portal, saves the session locally, and retries the sync automatically. Allow up to five minutes for Microsoft sign-in or MFA. You do not need to run `login.py` or switch to the CLI for session recovery. Keep the dashboard terminal open while this process runs.
+Click **Check Moodle** in the dashboard. If no saved session exists or Moodle has expired it, the app opens a visible browser window for Microsoft sign-in, keeps it open through any identity-provider redirects, waits for the Microsoft SSO flow to finish, probes a protected course page to confirm Moodle actually accepted the session, saves only a verified session, and retries the sync automatically. If the Microsoft popup closes by itself, the app keeps checking the main portal tab instead of treating the popup closing as success. Allow up to five minutes for Microsoft sign-in or MFA. You do not need to run `login.py` or switch to the CLI for session recovery. Keep the dashboard terminal open while this process runs.
 
 ## Included actions
 

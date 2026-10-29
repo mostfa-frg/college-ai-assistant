@@ -13,13 +13,13 @@ python -m uvicorn college_assistant.web_app:app --reload
 
 Open http://127.0.0.1:8000 in your browser. Stop the server with Ctrl+C.
 
-Before checking Moodle, sign in with the existing CLI workflow (option 4) so the local Moodle session file is created. The dashboard does not collect credentials in the browser.
+Click **Check Moodle** in the dashboard. If no saved session exists or Moodle has expired it, the app opens a visible browser window for sign-in, waits for you to finish, saves the session locally, and retries the sync automatically. You do not need to run `login.py` or switch to the CLI for session recovery. Keep the dashboard terminal open while this process runs.
 
 ## Included actions
 
 - View assignments and their stored due dates, Moodle submission status, and draft status.
 - Read stored assignment instructions.
-- Refresh assignment information from Moodle.
+- Refresh assignment information from Moodle, automatically opening sign-in and retrying if the session is missing or expired.
 - Generate a Word draft only when Moodle explicitly reports `not_submitted`.
 - Download a saved Word draft and mark a draft reviewed locally.
 

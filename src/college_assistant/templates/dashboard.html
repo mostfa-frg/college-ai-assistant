@@ -57,6 +57,16 @@
   </div>
   {% endif %}
   {% endif %}
+  {% if request.query_params.get('login_error') %}
+  <div role="alert" style="position:fixed;inset:0;z-index:40;margin:0;background:#10251def;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:min(520px,100%);background:white;border-radius:18px;padding:28px;box-shadow:0 20px 70px #0003">
+      <h2 style="margin:0 0 10px;color:#9b3027">Moodle sign-in needs attention</h2>
+      <p style="color:#9b3027;overflow-wrap:anywhere">{{ request.query_params.get('login_error') }}</p>
+      <p>Finish Microsoft sign-in in the opened browser window, then try verification again. The current sign-in window is kept open when verification fails.</p>
+      <form action="/actions/login/complete" method="post"><button type="submit">Retry Moodle verification</button></form>
+    </div>
+  </div>
+  {% endif %}
   <section class="stats">
     <div class="stat"><div class="label">Assignments tracked</div><strong>{{ counts.total }}</strong></div>
     <div class="stat"><div class="label">Marked not submitted</div><strong>{{ counts.ready }}</strong></div>

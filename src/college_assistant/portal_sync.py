@@ -20,6 +20,22 @@ from college_assistant.storage.repositories import (
 )
 
 
+def _is_login_page(page) -> bool:
+    """Detect Moodle's native login page and the college's Microsoft SSO landing page."""
+    parsed = urlparse(page.url)
+    if parsed.path.startswith("/login/"):
+        return True
+    try:
+        body = " ".join(page.locator("body").inner_text(timeout=3000).split()).casefold()
+    except Exception:
+        body = ""
+    return (
+        "log in using your account on" in body
+        or "you are not logged in" in body
+        or "invalid login" in body
+    )
+
+
 def _activity_key(url: str) -> str:
     parsed = urlparse(url)
     query = parse_qs(parsed.query)
@@ -121,7 +137,9 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
     detail_page = context.new_page()
     try:
         response = detail_page.goto(url, wait_until="domcontentloaded", timeout=45000)
-        if "/login/" in detail_page.url or (response and response.status >= 400):
+        if _is_login_page(detail_page):
+            raise RuntimeError("Portal session expired. Sign in through the college Microsoft SSO page.")
+        if response and response.status >= 400:
             return None, "unknown"
         body = " ".join(detail_page.locator("body").inner_text(timeout=15000).split())
         lower = body.casefold()
@@ -151,8 +169,8 @@ def scan_course(page, course_id: str, *, download_materials: bool = False) -> di
     previous_scan = get_course_scan_time(course_id)
     response = page.goto(course_url, wait_until="domcontentloaded", timeout=60000)
 
-    if "/login/" in page.url:
-        raise RuntimeError("Portal session expired. Run login.py to sign in again.")
+    if _is_login_page(page):
+        raise RuntimeError("Portal session expired. Sign in through the college Microsoft SSO page.")
     if response and response.status >= 400:
         raise RuntimeError(f"Course {course_id} returned HTTP {response.status}.")
 

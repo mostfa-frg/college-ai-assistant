@@ -4,7 +4,7 @@ import time
 from urllib.parse import urlparse
 
 from college_assistant.browser_setup import ensure_chromium_installed
-from college_assistant.config import BASE_URL, DATA_DIR, PORTAL_STATE_FILE
+from college_assistant.config import BASE_URL, COURSE_IDS, DATA_DIR, PORTAL_STATE_FILE
 
 
 def _open_login_browser():
@@ -44,50 +44,85 @@ def save_portal_login() -> None:
         playwright.stop()
 
 
-def _is_authenticated_portal_page(page) -> bool:
-    """Return true only when a page is back on the college portal and looks signed in."""
+def _is_portal_authenticated(page) -> bool:
+    """Probe a protected Moodle page; avoid relying on fragile menu/URL heuristics."""
     try:
         parsed = urlparse(page.url)
-        portal_host = urlparse(BASE_URL).hostname
-        if parsed.hostname != portal_host or parsed.path.startswith("/login/"):
+        if parsed.hostname != urlparse(BASE_URL).hostname:
             return False
-        body = " ".join(page.locator("body").inner_text(timeout=1500).split()).casefold()
+        if "/login/" in parsed.path:
+            return False
+        body = " ".join(page.locator("body").inner_text(timeout=2500).split()).casefold()
         if not body or "log in using your account on" in body:
             return False
         if "you are not logged in" in body or "invalid login" in body:
             return False
-        # Authenticated Moodle pages normally expose a course link, dashboard
-        # navigation, or a logout/profile control. Requiring one avoids treating
-        # the external Microsoft identity page as successful authentication.
+        # Moodle course pages contain course content; a login/SSO landing page does not.
         return bool(
-            page.locator('a[href*="/course/view.php"], a[href*="/my/"], '
-                         'a[href*="logout"], [data-region="user-menu"], '
-                         '.usermenu, #user-menu-toggle').count()
+            page.locator('a[href*="/mod/"], #page-content, [role="main"] '
+                         '.course-content, .course-content').count()
         )
     except Exception:
         return False
 
 
+def _probe_authenticated_session(page) -> bool:
+    """Reload a protected course URL to let a completed SSO popup establish Moodle cookies."""
+    course_id = COURSE_IDS[0]
+    try:
+        page.goto(
+            f"{BASE_URL}course/view.php?id={course_id}",
+            wait_until="domcontentloaded",
+            timeout=30_000,
+        )
+        page.wait_for_timeout(750)
+        return _is_portal_authenticated(page)
+    except Exception:
+        return False
+
+
 def save_portal_login_from_web(*, timeout_ms: int = 300_000) -> None:
-    """Handle Moodle's Microsoft SSO flow and save state only after returning authenticated."""
-    print("Moodle sign-in is required. A browser window will stay open during Microsoft sign-in.")
-    print("Finish the Microsoft sign-in and wait until the browser returns to the college portal.")
+    """Support Moodle's Microsoft SSO popup/redirect flow and save only a verified session."""
+    print("Moodle sign-in is required. Complete the Microsoft sign-in in the browser.")
+    print("If the Microsoft popup closes itself, the app will keep checking the main portal tab.")
     print("Verify the address before entering credentials; the app will not bypass authentication.")
     playwright, browser, context, first_page = _open_login_browser()
     deadline = time.monotonic() + timeout_ms / 1000
+    last_probe = 0.0
     try:
         while time.monotonic() < deadline:
-            # Microsoft SSO may redirect the current tab or open a separate tab.
-            for page in list(context.pages):
-                if _is_authenticated_portal_page(page):
+            # Some SSO providers complete in a popup and close only that popup.
+            # The main Moodle tab may need a fresh request to receive its session.
+            pages = list(context.pages)
+            for page in pages:
+                try:
+                    if urlparse(page.url).hostname == urlparse(BASE_URL).hostname:
+                        if _is_portal_authenticated(page):
+                            context.storage_state(path=str(PORTAL_STATE_FILE))
+                            print("Verified authenticated Moodle session saved.")
+                            return
+                except Exception:
+                    continue
+
+            now = time.monotonic()
+            if now - last_probe >= 3 and first_page in context.pages:
+                last_probe = now
+                if _probe_authenticated_session(first_page):
                     context.storage_state(path=str(PORTAL_STATE_FILE))
+                    print("Verified authenticated Moodle session saved.")
                     return
             time.sleep(0.5)
+
+        current_pages = [
+            f"{urlparse(page.url).hostname or 'unknown'}{urlparse(page.url).path}"
+            for page in context.pages
+        ]
         raise RuntimeError(
-            "Microsoft sign-in did not return to an authenticated college portal page "
-            "within five minutes. Complete all Microsoft prompts and wait for the "
-            "browser to return to learn3.sha.edu.eg; if it stays on Microsoft, check "
-            "for an approval/MFA prompt or sign-in error."
+            "Sign-in did not establish a Moodle session within five minutes. "
+            "The app checked the protected course page after the Microsoft sign-in "
+            f"flow but Moodle still showed a login/unauthenticated page. Open tabs: {current_pages}. "
+            "If the Microsoft popup closes, that alone does not mean Moodle login succeeded; "
+            "check for an error or approval prompt in the remaining browser window."
         )
     finally:
         context.close()

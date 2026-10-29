@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from urllib.parse import urlparse
+
 from college_assistant.browser_setup import ensure_chromium_installed
 from college_assistant.config import BASE_URL, DATA_DIR, PORTAL_STATE_FILE
 
@@ -41,41 +44,51 @@ def save_portal_login() -> None:
         playwright.stop()
 
 
-def save_portal_login_from_web(*, timeout_ms: int = 180_000) -> None:
-    """Open Moodle sign-in and wait until the login form is actually gone."""
-    print("Moodle sign-in is required. Complete sign-in in the browser window that opens.")
-    print("The browser will remain open while you sign in.")
-    print("Verify any certificate warning with the college before entering credentials.")
-    playwright, browser, context, page = _open_login_browser()
+def _is_authenticated_portal_page(page) -> bool:
+    """Return true only when a page is back on the college portal and looks signed in."""
     try:
-        # URL alone is not a reliable signal: Moodle can render its login form at
-        # /my/ or keep the same URL after an unsuccessful/partial login attempt.
-        page.wait_for_function(
-            """() => {
-                const username = document.querySelector(
-                    'input[name="username"], input#username, input[name="email"]'
-                );
-                const password = document.querySelector(
-                    'input[name="password"], input#password'
-                );
-                const loginForm = document.querySelector(
-                    'form#login, form[action*="login"], form[action*="signin"]'
-                );
-                const url = window.location.href.toLowerCase();
-                const loginText = /log in to the site|you are not logged in|invalid login/i
-                    .test(document.body?.innerText || "");
-                return !username && !password && !loginForm &&
-                    !url.includes("/login/") && !loginText;
-            }""",
-            timeout=timeout_ms,
+        parsed = urlparse(page.url)
+        portal_host = urlparse(BASE_URL).hostname
+        if parsed.hostname != portal_host or parsed.path.startswith("/login/"):
+            return False
+        body = " ".join(page.locator("body").inner_text(timeout=1500).split()).casefold()
+        if not body or "log in using your account on" in body:
+            return False
+        if "you are not logged in" in body or "invalid login" in body:
+            return False
+        # Authenticated Moodle pages normally expose a course link, dashboard
+        # navigation, or a logout/profile control. Requiring one avoids treating
+        # the external Microsoft identity page as successful authentication.
+        return bool(
+            page.locator('a[href*="/course/view.php"], a[href*="/my/"], '
+                         'a[href*="logout"], [data-region="user-menu"], '
+                         '.usermenu, #user-menu-toggle').count()
         )
-        # Save only after the browser visibly leaves the login state.
-        context.storage_state(path=str(PORTAL_STATE_FILE))
-    except Exception as exc:
+    except Exception:
+        return False
+
+
+def save_portal_login_from_web(*, timeout_ms: int = 300_000) -> None:
+    """Handle Moodle's Microsoft SSO flow and save state only after returning authenticated."""
+    print("Moodle sign-in is required. A browser window will stay open during Microsoft sign-in.")
+    print("Finish the Microsoft sign-in and wait until the browser returns to the college portal.")
+    print("Verify the address before entering credentials; the app will not bypass authentication.")
+    playwright, browser, context, first_page = _open_login_browser()
+    deadline = time.monotonic() + timeout_ms / 1000
+    try:
+        while time.monotonic() < deadline:
+            # Microsoft SSO may redirect the current tab or open a separate tab.
+            for page in list(context.pages):
+                if _is_authenticated_portal_page(page):
+                    context.storage_state(path=str(PORTAL_STATE_FILE))
+                    return
+            time.sleep(0.5)
         raise RuntimeError(
-            "Moodle sign-in was not detected before the timeout. Keep the login "
-            "browser open, complete sign-in, and make sure it returns to the portal."
-        ) from exc
+            "Microsoft sign-in did not return to an authenticated college portal page "
+            "within five minutes. Complete all Microsoft prompts and wait for the "
+            "browser to return to learn3.sha.edu.eg; if it stays on Microsoft, check "
+            "for an approval/MFA prompt or sign-in error."
+        )
     finally:
         context.close()
         browser.close()

@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from college_assistant.assignment_solutions import regenerate_assignment_draft
 from college_assistant.config import PORTAL_STATE_FILE, SOLUTIONS_DIR
-from college_assistant.portal_login import save_portal_login_from_web
+from college_assistant.portal_login import complete_portal_login_from_web, start_portal_login_from_web
 from college_assistant.portal_sync import run_sync
 from college_assistant.storage.database import initialize_database
 from college_assistant.storage.repositories import (
@@ -59,21 +59,45 @@ def assignment_api(assignment_id: int):
 
 @app.post("/actions/check")
 def check_assignments():
-    """Sync Moodle, recovering an absent or expired session through a visible login browser."""
-    try:
-        if not PORTAL_STATE_FILE.is_file():
-            save_portal_login_from_web()
+    """Sync Moodle; start a user-controlled sign-in flow when required."""
+    if not PORTAL_STATE_FILE.is_file():
         try:
-            run_sync()
-        except RuntimeError as exc:
-            if "portal session expired" not in str(exc).casefold():
-                raise
-            save_portal_login_from_web()
-            run_sync()
+            start_portal_login_from_web()
+        except Exception as exc:
+            return RedirectResponse(url="/?error=" + quote("Could not open Moodle sign-in: " + str(exc), safe=""), status_code=303)
+        return RedirectResponse(url="/?notice=login-opened", status_code=303)
+
+    try:
+        run_sync()
+    except RuntimeError as exc:
+        if "portal session expired" not in str(exc).casefold():
+            return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
+        try:
+            PORTAL_STATE_FILE.unlink(missing_ok=True)
+            start_portal_login_from_web()
+        except Exception as login_exc:
+            return RedirectResponse(url="/?error=" + quote("Session expired and sign-in could not start: " + str(login_exc), safe=""), status_code=303)
+        return RedirectResponse(url="/?notice=login-opened", status_code=303)
+    except (FileNotFoundError, OSError, TimeoutError) as exc:
+        return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
+    return RedirectResponse(url="/?notice=check-complete", status_code=303)
+
+
+@app.post("/actions/login/complete")
+def complete_login():
+    """Verify/save SSO only after the user confirms they've finished signing in."""
+    try:
+        if not complete_portal_login_from_web():
+            return RedirectResponse(
+                url="/?error=" + quote(
+                    "Moodle has not confirmed your login yet. Finish Microsoft sign-in in the open browser, then click the confirmation button again.",
+                    safe="",
+                ),
+                status_code=303,
+            )
+        run_sync()
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
-        # Keep users in the dashboard instead of dumping a raw JSON error page.
-        message = "Moodle could not be refreshed: " + str(exc)
-        return RedirectResponse(url="/?error=" + quote(message, safe=""), status_code=303)
+        return RedirectResponse(url="/?error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
     return RedirectResponse(url="/?notice=check-complete", status_code=303)
 
 

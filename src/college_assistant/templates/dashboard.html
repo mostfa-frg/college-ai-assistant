@@ -25,7 +25,15 @@
   </style>
 </head>
 <body>
-<header><div><div class="brand">College <span>AI</span> Assistant</div><div class="sub">Your coursework, organized for review.</div></div><form action="/actions/check" method="post"><button class="secondary" type="submit">Check Moodle assignments</button></form></header>
+<header><div><div class="brand">College <span>AI</span> Assistant</div><div class="sub">Your coursework, organized for review.</div></div><form id="sync-form" action="/actions/check" method="post"><button id="sync-button" class="secondary" type="submit">Check Moodle assignments</button></form></header>
+<div id="sync-overlay" hidden role="status" aria-live="polite" style="position:fixed;inset:0;background:#10251dcc;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:min(440px,100%);background:white;border-radius:18px;padding:28px;text-align:center;box-shadow:0 20px 70px #0003">
+    <div aria-hidden="true" style="width:36px;height:36px;border:4px solid #dcefe5;border-top-color:#1e5b49;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 18px"></div>
+    <h2 id="sync-title" style="margin:0 0 8px">Checking Moodle</h2>
+    <p id="sync-description" style="color:#687b75;margin:0">Connecting to your courses and comparing with the previous check. This can take a little while.</p>
+  </div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}[hidden]{display:none!important}</style>
 <main>
   <div class="eyebrow">Workspace / Overview</div><h1>Assignment dashboard</h1>
   <p class="intro">Track deadlines, check submission status, and prepare drafts to review on your computer.</p>
@@ -35,16 +43,16 @@
   {% if request.query_params.get('notice') %}
   <div class="notice" role="status">
     {% set notice = request.query_params.get('notice') %}
-    {% if notice == 'check-complete' %}Moodle check finished. Assignment information has been refreshed.
+    {% if notice == 'check-complete' %}{% set changes = request.query_params.get('changes', '0')|int %}{% if changes == 0 %}Moodle check complete — no new or changed activities since the previous check.{% else %}Moodle check complete — {{ changes }} new or changed activities found.{% endif %} Assignment information has been refreshed.
     {% elif notice == 'login-opened' %}The Moodle sign-in browser is open. Complete the Microsoft sign-in there, return here, then click the confirmation button below. The app will not reload the login page while you type.
     {% elif notice == 'draft-generated' %}Draft generated. Open the Word file and review it before use.
     {% elif notice == 'marked-reviewed' %}Local review recorded. Nothing was submitted to Moodle.
     {% else %}Action completed.{% endif %}
   </div>
   {% if request.query_params.get('notice') == 'login-opened' %}
-  <div class="notice" style="background:#e8f1fa;border-color:#c6d9ed;color:#234b70">
+  <div class="notice" style="position:fixed;inset:0;z-index:30;margin:0;border-radius:0;background:#e8f1fa;border-color:#c6d9ed;color:#234b70;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center">
     <strong>Finished signing in?</strong>
-    <p>Only click this after Microsoft sign-in has completed. If verification fails, the browser will remain open so you can finish signing in and retry.</p>
+    <p>Complete sign-in in the opened browser window. When you return here, click the button below. If verification fails, the error will remain on this screen and you can retry.</p>
     <form action="/actions/login/complete" method="post"><button type="submit">I've finished signing in — verify Moodle</button></form>
   </div>
   {% endif %}
@@ -96,5 +104,14 @@ async function showInstructions(id){
 }
 function closeInstructions(){document.getElementById('instruction-modal').hidden=true;}
 document.getElementById('instruction-modal').addEventListener('click',event=>{if(event.target.id==='instruction-modal')closeInstructions();});
+document.getElementById('sync-form').addEventListener('submit',event=>{
+  const overlay=document.getElementById('sync-overlay');
+  const button=document.getElementById('sync-button');
+  if(button.disabled){event.preventDefault();return;}
+  button.disabled=true;button.textContent='Checking…';
+  document.getElementById('sync-title').textContent='Checking Moodle';
+  document.getElementById('sync-description').textContent='Scanning your courses and comparing updates with the previous check. Please keep this page open.';
+  overlay.hidden=false;
+});
 </script>
 </body></html>

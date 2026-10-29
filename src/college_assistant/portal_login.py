@@ -45,7 +45,7 @@ def save_portal_login() -> None:
 
 
 def _is_portal_authenticated(page) -> bool:
-    """Probe a protected Moodle page; avoid relying on fragile menu/URL heuristics."""
+    """Check whether a page is an authenticated Moodle page."""
     try:
         parsed = urlparse(page.url)
         if parsed.hostname != urlparse(BASE_URL).hostname:
@@ -57,17 +57,18 @@ def _is_portal_authenticated(page) -> bool:
             return False
         if "you are not logged in" in body or "invalid login" in body:
             return False
-        # Moodle course pages contain course content; a login/SSO landing page does not.
         return bool(
-            page.locator('a[href*="/mod/"], #page-content, [role="main"] '
-                         '.course-content, .course-content').count()
+            page.locator(
+                'a[href*="/mod/"], #page-content, [role="main"], .course-content, '
+                '[data-region="user-menu"], .usermenu, #user-menu-toggle'
+            ).count()
         )
     except Exception:
         return False
 
 
 def _probe_authenticated_session(page) -> bool:
-    """Reload a protected course URL to let a completed SSO popup establish Moodle cookies."""
+    """Verify the saved browser context only after interactive SSO has finished."""
     course_id = COURSE_IDS[0]
     try:
         page.goto(
@@ -75,54 +76,59 @@ def _probe_authenticated_session(page) -> bool:
             wait_until="domcontentloaded",
             timeout=30_000,
         )
-        page.wait_for_timeout(750)
+        page.wait_for_timeout(1000)
         return _is_portal_authenticated(page)
     except Exception:
         return False
 
 
 def save_portal_login_from_web(*, timeout_ms: int = 300_000) -> None:
-    """Support Moodle's Microsoft SSO popup/redirect flow and save only a verified session."""
-    print("Moodle sign-in is required. Complete the Microsoft sign-in in the browser.")
-    print("If the Microsoft popup closes itself, the app will keep checking the main portal tab.")
-    print("Verify the address before entering credentials; the app will not bypass authentication.")
+    """Wait without navigating during interactive Microsoft SSO, then verify Moodle once."""
+    print("Moodle sign-in is required. Complete Microsoft sign-in in the browser window.")
+    print("The app will not reload the login page while you enter your email or password.")
+    print("After sign-in, the app verifies Moodle access and saves the session.")
     playwright, browser, context, first_page = _open_login_browser()
     deadline = time.monotonic() + timeout_ms / 1000
-    last_probe = 0.0
+    popup_was_seen = False
+    popup_closed_at = None
+    verified = False
     try:
         while time.monotonic() < deadline:
-            # Some SSO providers complete in a popup and close only that popup.
-            # The main Moodle tab may need a fresh request to receive its session.
             pages = list(context.pages)
-            for page in pages:
-                try:
-                    if urlparse(page.url).hostname == urlparse(BASE_URL).hostname:
-                        if _is_portal_authenticated(page):
-                            context.storage_state(path=str(PORTAL_STATE_FILE))
-                            print("Verified authenticated Moodle session saved.")
-                            return
-                except Exception:
-                    continue
+            if len(pages) > 1:
+                popup_was_seen = True
 
-            now = time.monotonic()
-            if now - last_probe >= 3 and first_page in context.pages:
-                last_probe = now
-                if _probe_authenticated_session(first_page):
+            # First accept an authenticated portal page if SSO redirected the same tab.
+            for page in pages:
+                if _is_portal_authenticated(page):
                     context.storage_state(path=str(PORTAL_STATE_FILE))
                     print("Verified authenticated Moodle session saved.")
                     return
+
+            # If SSO opened a popup, do not touch the main Moodle tab while it is open.
+            # Once the popup closes, give the portal a moment to process the callback,
+            # then perform one protected-page probe (not repeated reloads).
+            if popup_was_seen and len(pages) == 1 and popup_closed_at is None:
+                popup_closed_at = time.monotonic() + 2.0
+
+            if popup_closed_at is not None and time.monotonic() >= popup_closed_at and not verified:
+                verified = True
+                if first_page in context.pages and _probe_authenticated_session(first_page):
+                    context.storage_state(path=str(PORTAL_STATE_FILE))
+                    print("Verified authenticated Moodle session saved.")
+                    return
+                raise RuntimeError(
+                    "The Microsoft sign-in window closed, but Moodle did not establish an "
+                    "authenticated session. The app did not save an invalid session. "
+                    "Please retry and check whether Microsoft displayed an error or blocked "
+                    "the college portal callback."
+                )
+
             time.sleep(0.5)
 
-        current_pages = [
-            f"{urlparse(page.url).hostname or 'unknown'}{urlparse(page.url).path}"
-            for page in context.pages
-        ]
         raise RuntimeError(
-            "Sign-in did not establish a Moodle session within five minutes. "
-            "The app checked the protected course page after the Microsoft sign-in "
-            f"flow but Moodle still showed a login/unauthenticated page. Open tabs: {current_pages}. "
-            "If the Microsoft popup closes, that alone does not mean Moodle login succeeded; "
-            "check for an error or approval prompt in the remaining browser window."
+            "Sign-in timed out. The browser was left alone while you entered your credentials. "
+            "Complete all Microsoft prompts and wait for the college portal callback."
         )
     finally:
         context.close()

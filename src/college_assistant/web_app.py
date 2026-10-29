@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 
 from college_assistant.assignment_solutions import regenerate_assignment_draft
 from college_assistant.config import PORTAL_STATE_FILE, SOLUTIONS_DIR
+from college_assistant.portal_login import save_portal_login_from_web
 from college_assistant.portal_sync import run_sync
 from college_assistant.storage.database import initialize_database
 from college_assistant.storage.repositories import (
@@ -57,15 +58,25 @@ def assignment_api(assignment_id: int):
 
 @app.post("/actions/check")
 def check_assignments():
-    if not PORTAL_STATE_FILE.is_file():
-        raise HTTPException(
-            status_code=409,
-            detail="Moodle session not found. Sign in using the existing CLI first.",
-        )
+    """Sync Moodle, recovering an absent or expired session through a visible login browser."""
     try:
-        results = run_sync()
-    except (RuntimeError, FileNotFoundError, OSError) as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if not PORTAL_STATE_FILE.is_file():
+            save_portal_login_from_web()
+        try:
+            run_sync()
+        except RuntimeError as exc:
+            if "portal session expired" not in str(exc).casefold():
+                raise
+            save_portal_login_from_web()
+            run_sync()
+    except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Moodle could not be refreshed. If a sign-in browser opened, complete "
+                f"the login and try again. Details: {exc}"
+            ),
+        ) from exc
     return RedirectResponse(url="/?notice=check-complete", status_code=303)
 
 

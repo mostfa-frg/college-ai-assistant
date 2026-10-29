@@ -26,7 +26,7 @@ python -m pip install -e .
 python -m uvicorn college_assistant.web_app:app --reload
 ```
 
-Then open http://127.0.0.1:8000. When you use the dashboard's Moodle refresh action, it opens a sign-in browser automatically if the session is missing or expired, saves the refreshed session locally, and retries. The dashboard can show assignments and instructions, generate eligible Word drafts, download drafts, and mark drafts reviewed locally.
+Then open http://127.0.0.1:8000. When you use the dashboard's Moodle refresh action, it opens a sign-in browser if the session is missing or expired. Complete Microsoft sign-in at your own pace, then return to the dashboard and click **I've finished signing in — verify Moodle**. The app verifies access before saving the session and refreshing assignments. The dashboard can show assignments and instructions, generate eligible Word drafts, download drafts, and mark drafts reviewed locally.
 
 **Safety:** Draft generation is available only for assignments explicitly marked `not_submitted`. Reviewing a draft records a local status; nothing is submitted to Moodle. Keep the server on localhost and do not expose it to the internet or an untrusted network. See [WEB_DASHBOARD.md](WEB_DASHBOARD.md) for details.
 

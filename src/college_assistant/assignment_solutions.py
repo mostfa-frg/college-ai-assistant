@@ -480,7 +480,7 @@ def _save_word_only(assignment: dict, content: str, version: int | None = None) 
     """Convert temporary Markdown to Word, then retain only the .docx artifact."""
     import tempfile
 
-    SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    course_dir = _course_solutions_dir(assignment)
     stem = f"assignment_{assignment['id']}_{_safe_stem(assignment['title'])}_draft"
     word_name = f"{stem}.docx" if version is None else f"{stem}_v{version}.docx"
     word_path = course_dir / word_name
@@ -562,7 +562,7 @@ def regenerate_assignment_draft(assignment_id: int) -> dict:
 
     client = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
     content = _generate_solution_content(client, assignment, instructions[:24000])
-    SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    course_dir = _course_solutions_dir(assignment)
     stem = f"assignment_{assignment_id}_{_safe_stem(assignment['title'])}_draft"
     version = 2
     while (course_dir / f"{stem}_v{version}.docx").exists():

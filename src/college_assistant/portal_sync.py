@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -270,7 +271,7 @@ def _course_activity_links(html: str, base_url: str) -> list[tuple[str, str, str
             continue
         seen.add(key)
         label = label or title_attr or f"{kind.title()} {activity_id}"
-        label = re.sub(r"\\s+(File|Folder|Assignment|URL|Page|Forum|Quiz)$", "", label).strip()
+        label = re.sub(r"\s+(File|Folder|Assignment|URL|Page|Forum|Quiz)$", "", label).strip()
         result.append((kind, activity_id, label, url))
     return result
 

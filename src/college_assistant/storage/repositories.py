@@ -134,7 +134,11 @@ def list_assignments(unresolved_only: bool = False) -> list[dict]:
 
 def get_assignment(assignment_id: int) -> dict | None:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM assignments WHERE id = ?", (assignment_id,)).fetchone()
+        row = connection.execute("""
+            SELECT assignments.*, COALESCE(courses.title, assignments.course_id) AS course_title
+            FROM assignments LEFT JOIN courses ON courses.course_id = assignments.course_id
+            WHERE assignments.id = ?
+        """, (assignment_id,)).fetchone()
     return dict(row) if row else None
 
 

@@ -75,11 +75,13 @@
   </section>
   <div class="toolbar"><h2>Your assignments</h2><span class="meta">Grouped by course name, then assignment</span></div>
   <div class="table-wrap">
-  {% if assignments %}
+  {% if assignments_by_course %}
   <table><thead><tr><th>Assignment</th><th>Due date</th><th>Moodle status</th><th>Draft status</th><th>Actions</th></tr></thead><tbody>
-  {% for item in assignments %}
+  {% for course, course_assignments in assignments_by_course.items() %}
+  <tr><td colspan="5" style="background:#f0f5f1;font-weight:800;color:var(--green)">{{ course }} <span class="meta">· {{ course_assignments|length }} assignment{% if course_assignments|length != 1 %}s{% endif %}</span></td></tr>
+  {% for item in course_assignments %}
   <tr>
-    <td><div class="assignment">{{ item.title }}</div><div class="meta">{{ item.course_title }} · <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">Open in Moodle ↗</a></div></td>
+    <td><div class="assignment">{{ item.title }}</div><div class="meta"><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">Open in Moodle ↗</a></div></td>
     <td>{{ item.due_at or 'Not available' }}</td>
     <td><span class="pill {% if item.submission_status == 'not_submitted' %}warn{% elif item.submission_status == 'submitted' %}good{% else %}bad{% endif %}">{{ (item.submission_status or 'unknown').replace('_',' ') }}</span></td>
     <td><span class="pill">{{ (item.solution_status or 'not generated').replace('_',' ') }}</span></td>
@@ -91,23 +93,11 @@
     </div></td>
   </tr>
   {% endfor %}
+  {% endfor %}
   </tbody></table>
   {% else %}<div class="empty"><strong>No assignments yet</strong><p>Choose “Check Moodle assignments” above. The dashboard will open sign-in automatically if needed.</p></div>{% endif %}
   </div>
   <div id="instruction-modal" hidden style="position:fixed;inset:0;background:#10251dcc;padding:24px;z-index:5;overflow:auto"><div style="max-width:760px;margin:5vh auto;background:white;border-radius:16px;padding:24px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><h2 id="instruction-title">Assignment instructions</h2><button type="button" onclick="closeInstructions()">Close</button></div><pre id="instruction-body" style="white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.6 ui-monospace,monospace;max-height:65vh;overflow:auto"></pre></div></div>
-  <div class="toolbar"><h2>Course materials</h2><span class="meta">{{ materials|length }} files stored locally · {{ courses|length }} courses</span></div>
-  {% if materials %}
-  {% for course in courses %}
-    <section style="background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px">
-      <h3 style="margin:0 0 10px">{{ course }}</h3>
-      <ul style="margin:0;padding-left:20px">
-      {% for material in materials if material.course_title == course %}
-        <li style="padding:5px 0"><a href="/materials/{{ material.id }}">{{ material.title }}</a> <span class="meta">· {{ material.status }}</span></li>
-      {% endfor %}
-      </ul>
-    </section>
-  {% endfor %}
-  {% else %}<div class="empty">No course files stored yet. Run “Check Moodle assignments” to sync materials from all configured courses.</div>{% endif %}
   <footer>Draft generation is restricted to assignments Moodle explicitly marks “not submitted.” Review is local only; this dashboard never submits work to Moodle.</footer>
 </main>
 <script>

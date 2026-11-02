@@ -20,8 +20,10 @@ def register_material(course_id: str, title: str, file_path: Path, content_hash:
 
 
 def list_materials(course_id: str | None = None) -> list[dict]:
-    query, params = ("SELECT * FROM materials ORDER BY title", ()) if course_id is None else (
-        "SELECT * FROM materials WHERE course_id = ? ORDER BY title", (course_id,))
+    base = """SELECT materials.*, COALESCE(courses.title, materials.course_id) AS course_title
+              FROM materials LEFT JOIN courses ON courses.course_id = materials.course_id"""
+    query, params = (base + " ORDER BY course_title COLLATE NOCASE, materials.title COLLATE NOCASE", ()) if course_id is None else (
+        base + " WHERE materials.course_id = ? ORDER BY materials.title COLLATE NOCASE", (course_id,))
     with get_connection() as connection:
         return [dict(row) for row in connection.execute(query, params).fetchall()]
 
@@ -122,10 +124,10 @@ def upsert_assignment(course_id: str, activity_key: str, title: str, url: str,
 
 
 def list_assignments(unresolved_only: bool = False) -> list[dict]:
-    query = "SELECT * FROM assignments"
+    query = """SELECT assignments.*, COALESCE(courses.title, assignments.course_id) AS course_title\n                   FROM assignments LEFT JOIN courses ON courses.course_id = assignments.course_id"""
     if unresolved_only:
         query += " WHERE solution_status != 'approved'"
-    query += " ORDER BY due_at IS NULL, due_at, title"
+    query += " ORDER BY course_title COLLATE NOCASE, title COLLATE NOCASE, due_at IS NULL, due_at"
     with get_connection() as connection:
         return [dict(row) for row in connection.execute(query).fetchall()]
 

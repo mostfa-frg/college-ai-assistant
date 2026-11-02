@@ -167,30 +167,57 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
 
 
 def discover_courses(page) -> dict[str, str]:
-    """Discover the user's enrolled courses from Moodle, instead of relying on stale hard-coded IDs."""
+    """Discover enrolled courses using the same delayed-render handling as moodle-sync."""
     found: dict[str, str] = {}
+    diagnostics: list[str] = []
     for path in ("my/courses.php", "my/"):
-        page.goto(urljoin(BASE_URL, path), wait_until="domcontentloaded", timeout=60000)
+        target_url = urljoin(BASE_URL, path)
+        response = page.goto(target_url, wait_until="domcontentloaded", timeout=60000)
         if _is_login_page(page):
-            raise RuntimeError("Portal session expired. Sign in through the college Microsoft SSO page.")
+            raise RuntimeError(
+                f"Portal session expired while opening {path}. "
+                "Sign in through the college Microsoft SSO page."
+            )
+        try:
+            page.wait_for_selector('a[href*="/course/view.php?id="]', timeout=15000)
+        except Exception:
+            # Some Moodle themes render course cards asynchronously or expose
+            # their URLs only after the page's remaining scripts finish.
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass
+            try:
+                page.wait_for_timeout(1500)
+            except Exception:
+                pass
+
         links = page.locator('a[href*="/course/view.php?id="]')
-        for index in range(links.count()):
+        link_count = links.count()
+        diagnostics.append(
+            f"{path}: HTTP {response.status if response else 'unknown'}, "
+            f"URL={page.url}, title={page.title()!r}, course_links={link_count}"
+        )
+        for index in range(link_count):
             link = links.nth(index)
             href = link.get_attribute("href") or ""
-            course_id = (parse_qs(urlparse(href).query).get("id") or [""])[0]
+            parsed = urlparse(urljoin(BASE_URL, href))
+            course_id = (parse_qs(parsed.query).get("id") or [""])[0]
             if not course_id.isdigit() or course_id == "1":
                 continue
             try:
-                title = " ".join(link.inner_text(timeout=2000).split())
+                title = " ".join(link.inner_text(timeout=3000).split())
             except Exception:
                 title = ""
             found.setdefault(course_id, title or f"Course {course_id}")
         if found:
-            break
-    if not found:
-        raise RuntimeError("Moodle did not expose any enrolled course links on My courses or Dashboard.")
-    return found
+            return found
 
+    raise RuntimeError(
+        "Moodle did not expose any enrolled course links. Discovery diagnostics: "
+        + " | ".join(diagnostics)
+        + ". Open My courses in the same browser session and confirm that your courses are visible."
+    )
 
 def scan_course(page, course_id: str, *, download_materials: bool = False) -> dict:
     course_url = urljoin(BASE_URL, f"course/view.php?id={course_id}")

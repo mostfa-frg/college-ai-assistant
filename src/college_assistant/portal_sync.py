@@ -250,7 +250,7 @@ class _CourseLinkParser(HTMLParser):
             self._current = None
 
 
-def _course_activity_links(html: str, base_url: str) -> list[tuple[str, str, str]]:
+def _course_activity_links(html: str, base_url: str) -> list[tuple[str, str, str, str]]:
     parser = _CourseLinkParser()
     parser.feed(html)
     host = urlparse(base_url).netloc

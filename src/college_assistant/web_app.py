@@ -16,6 +16,7 @@ from college_assistant.storage.repositories import (
     approve_solution,
     get_assignment,
     list_assignments,
+    list_materials,
 )
 
 app = FastAPI(title="College AI Assistant", version="0.1.0")
@@ -30,6 +31,8 @@ def startup() -> None:
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     assignments = list_assignments()
+    materials = list_materials()
+    courses = sorted({m.get("course_title") or m.get("course_id") for m in materials}, key=str.casefold)
     counts = {
         "total": len(assignments),
         "ready": sum(a.get("submission_status") == "not_submitted" for a in assignments),
@@ -39,7 +42,7 @@ def dashboard(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"assignments": assignments, "counts": counts},
+        context={"assignments": assignments, "counts": counts, "materials": materials, "courses": courses},
     )
 
 
@@ -68,7 +71,7 @@ def check_assignments():
         return RedirectResponse(url="/?notice=login-opened", status_code=303)
 
     try:
-        results = run_sync()
+        results = run_sync(download_materials=True)
     except RuntimeError as exc:
         if "portal session expired" not in str(exc).casefold():
             return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
@@ -97,7 +100,7 @@ def complete_login():
                 url="/?login_error=" + quote(detail, safe=""),
                 status_code=303,
             )
-        results = run_sync()
+        results = run_sync(download_materials=True)
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
         return RedirectResponse(url="/?login_error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
     change_count = sum(len(course.get("changes", [])) for course in results)

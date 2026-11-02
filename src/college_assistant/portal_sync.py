@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from playwright.sync_api import sync_playwright
 
 from college_assistant.browser_setup import ensure_chromium_installed
-from college_assistant.config import BASE_URL, COURSE_IDS, PORTAL_STATE_FILE
+from college_assistant.config import BASE_URL, PORTAL_STATE_FILE
 from college_assistant.materials_sync import sync_course_materials
 from college_assistant.storage.repositories import (
     finish_sync_run,
@@ -164,6 +164,32 @@ def _inspect_assignment(context, url: str) -> tuple[str | None, str]:
         return None, "unknown"
     finally:
         detail_page.close()
+
+
+def discover_courses(page) -> dict[str, str]:
+    """Discover the user's enrolled courses from Moodle, instead of relying on stale hard-coded IDs."""
+    found: dict[str, str] = {}
+    for path in ("my/courses.php", "my/"):
+        page.goto(urljoin(BASE_URL, path), wait_until="domcontentloaded", timeout=60000)
+        if _is_login_page(page):
+            raise RuntimeError("Portal session expired. Sign in through the college Microsoft SSO page.")
+        links = page.locator('a[href*="/course/view.php?id="]')
+        for index in range(links.count()):
+            link = links.nth(index)
+            href = link.get_attribute("href") or ""
+            course_id = (parse_qs(urlparse(href).query).get("id") or [""])[0]
+            if not course_id.isdigit() or course_id == "1":
+                continue
+            try:
+                title = " ".join(link.inner_text(timeout=2000).split())
+            except Exception:
+                title = ""
+            found.setdefault(course_id, title or f"Course {course_id}")
+        if found:
+            break
+    if not found:
+        raise RuntimeError("Moodle did not expose any enrolled course links on My courses or Dashboard.")
+    return found
 
 
 def scan_course(page, course_id: str, *, download_materials: bool = False) -> dict:

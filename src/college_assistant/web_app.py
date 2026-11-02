@@ -46,6 +46,18 @@ def dashboard(request: Request):
     )
 
 
+@app.get("/materials/{material_id}")
+def open_material(material_id: int):
+    material = next((item for item in list_materials() if item["id"] == material_id), None)
+    if not material or not material.get("file_path"):
+        raise HTTPException(status_code=404, detail="Material file not found")
+    path = Path(material["file_path"]).resolve()
+    from college_assistant.config import MATERIALS_DIR
+    root = MATERIALS_DIR.resolve()
+    if root not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Material file is unavailable")
+    return FileResponse(path, filename=path.name)
+
 @app.get("/api/assignments")
 def assignments_api():
     """Return assignment metadata only; never expose local credentials or session state."""

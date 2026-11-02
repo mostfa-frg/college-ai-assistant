@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
@@ -16,7 +17,6 @@ from college_assistant.storage.repositories import (
     approve_solution,
     get_assignment,
     list_assignments,
-    list_materials,
 )
 
 app = FastAPI(title="College AI Assistant", version="0.1.0")
@@ -31,8 +31,10 @@ def startup() -> None:
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     assignments = list_assignments()
-    materials = list_materials()
-    courses = sorted({m.get("course_title") or m.get("course_id") for m in materials}, key=str.casefold)
+    assignments_by_course = {}
+    for assignment in assignments:
+        course = assignment.get("course_title") or assignment.get("course_id") or "Other"
+        assignments_by_course.setdefault(course, []).append(assignment)
     counts = {
         "total": len(assignments),
         "ready": sum(a.get("submission_status") == "not_submitted" for a in assignments),
@@ -42,7 +44,7 @@ def dashboard(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"assignments": assignments, "counts": counts, "materials": materials, "courses": courses},
+        context={"assignments": assignments, "assignments_by_course": assignments_by_course, "counts": counts},
     )
 
 
@@ -147,10 +149,13 @@ def approve_draft(assignment_id: int):
     draft = assignment.get("solution_path")
     if not draft or not Path(draft).is_file():
         raise HTTPException(status_code=409, detail="No saved draft file is available to review.")
-    SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
-    approved_path = (SOLUTIONS_DIR / f"assignment_{assignment_id}_approved.docx").resolve()
+    course_name = assignment.get("course_title") or f"course_{assignment['course_id']}"
+    course_folder = re.sub(r"[^A-Za-z0-9_-]+", "_", course_name).strip("_")[:60] or "course"
+    course_dir = (SOLUTIONS_DIR / course_folder).resolve()
+    course_dir.mkdir(parents=True, exist_ok=True)
+    approved_path = (course_dir / f"assignment_{assignment_id}_approved.docx").resolve()
     solutions_root = SOLUTIONS_DIR.resolve()
-    if approved_path.parent != solutions_root:
+    if solutions_root not in approved_path.parents:
         raise HTTPException(status_code=400, detail="Invalid solution path")
     import shutil
     shutil.copy2(draft, approved_path)

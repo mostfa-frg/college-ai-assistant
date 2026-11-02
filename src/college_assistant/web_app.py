@@ -17,6 +17,7 @@ from college_assistant.storage.repositories import (
     approve_solution,
     get_assignment,
     list_assignments,
+    list_materials,
 )
 
 app = FastAPI(title="College AI Assistant", version="0.1.0")

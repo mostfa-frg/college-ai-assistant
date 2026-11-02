@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlparse
 
 from playwright.sync_api import sync_playwright
@@ -219,6 +220,61 @@ def discover_courses(page) -> dict[str, str]:
         + ". Open My courses in the same browser session and confirm that your courses are visible."
     )
 
+
+
+class _CourseLinkParser(HTMLParser):
+    """Extract Moodle activity links from the same raw HTML used by moodle-sync."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links: list[tuple[str, str, str]] = []
+        self._current = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "a" and attrs.get("href"):
+            self._current = {
+                "href": attrs["href"],
+                "text": [],
+                "title": attrs.get("title") or attrs.get("aria-label") or "",
+            }
+
+    def handle_data(self, data):
+        if self._current is not None:
+            self._current["text"].append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._current is not None:
+            item = self._current
+            label = " ".join("".join(item["text"]).split()) or " ".join(item["title"].split())
+            self.links.append((item["href"], label, item["title"]))
+            self._current = None
+
+
+def _course_activity_links(html: str, base_url: str) -> list[tuple[str, str, str]]:
+    parser = _CourseLinkParser()
+    parser.feed(html)
+    host = urlparse(base_url).netloc
+    result = []
+    seen = set()
+    for href, label, title_attr in parser.links:
+        url = urljoin(base_url, href)
+        parsed = urlparse(url)
+        if parsed.netloc != host or not parsed.path.startswith("/mod/"):
+            continue
+        kind = next((name for name in ("assign", "resource", "folder", "url") if f"/mod/{name}/view.php" in parsed.path), None)
+        activity_id = (parse_qs(parsed.query).get("id") or [""])[0]
+        if not kind or not activity_id:
+            continue
+        key = (kind, activity_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        label = label or title_attr or f"{kind.title()} {activity_id}"
+        label = re.sub(r"\\s+(File|Folder|Assignment|URL|Page|Forum|Quiz)$", "", label).strip()
+        result.append((kind, activity_id, label, url))
+    return result
+
+
 def scan_course(page, course_id: str, *, download_materials: bool = False) -> dict:
     course_url = urljoin(BASE_URL, f"course/view.php?id={course_id}")
     previous_scan = get_course_scan_time(course_id)
@@ -230,31 +286,19 @@ def scan_course(page, course_id: str, *, download_materials: bool = False) -> di
         raise RuntimeError(f"Course {course_id} returned HTTP {response.status}.")
 
     course_title = page.title().replace("Course: ", "").strip() or f"Course {course_id}"
-    links = page.locator('a[href*="/mod/"]')
     seen: set[str] = set()
     changes: list[dict] = []
     assignments: list[dict] = []
+    course_html = page.content()
+    activity_links = _course_activity_links(course_html, BASE_URL)
 
-    for index in range(links.count()):
-        link = links.nth(index)
-        href = link.get_attribute("href")
-        title = " ".join(link.inner_text().split())
-        if not href or not title:
-            continue
-
-        url = urljoin(BASE_URL, href)
-        parsed = urlparse(url)
-        if parsed.netloc != urlparse(BASE_URL).netloc:
-            continue
-        if not parsed.path.startswith("/mod/"):
-            continue
-
+    for kind, activity_id, title, url in activity_links:
         key = _activity_key(url)
         if key in seen:
             continue
         seen.add(key)
 
-        activity_type = _activity_type(url)
+        activity_type = "assignment" if kind == "assign" else _activity_type(url)
         fingerprint = hashlib.sha256(
             f"{title.strip()}\n{url}".encode("utf-8")
         ).hexdigest()

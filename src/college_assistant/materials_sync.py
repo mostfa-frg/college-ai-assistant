@@ -77,7 +77,7 @@ def _register(context, url: str, folder: Path, course_id: str, title: str | None
             temporary = destination.with_suffix(destination.suffix + ".part")
             temporary.write_bytes(payload)
             temporary.replace(destination)
-        register_material(str(course_id), title or destination.name, destination, digest(payload), "downloaded")
+        register_material(str(course_id), f"{title} — {destination.name}" if title else destination.name, destination, digest(payload), "downloaded")
         return True
     except Exception:
         return False

@@ -53,6 +53,15 @@ def _safe_stem(value: str) -> str:
     return (re.sub(r"[^A-Za-z0-9_-]+", "_", value).strip("_") or "assignment")[:60]
 
 
+def _course_solutions_dir(assignment: dict) -> Path:
+    """Keep every draft and approved copy inside its Moodle course folder."""
+    course_name = assignment.get("course_title") or f"course_{assignment['course_id']}"
+    folder = _safe_stem(course_name)
+    destination = SOLUTIONS_DIR / folder
+    destination.mkdir(parents=True, exist_ok=True)
+    return destination
+
+
 def _is_placeholder_draft(content: str) -> bool:
     """Reject generic templates rather than presenting them as generated solutions."""
     normalized = content.casefold()
@@ -474,7 +483,7 @@ def _save_word_only(assignment: dict, content: str, version: int | None = None) 
     SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
     stem = f"assignment_{assignment['id']}_{_safe_stem(assignment['title'])}_draft"
     word_name = f"{stem}.docx" if version is None else f"{stem}_v{version}.docx"
-    word_path = SOLUTIONS_DIR / word_name
+    word_path = course_dir / word_name
     markdown = (
         f"# Draft solution: {assignment['title']}\n\n"
         "> Status: Pending your review. This file has not been submitted.\n\n"
@@ -556,7 +565,7 @@ def regenerate_assignment_draft(assignment_id: int) -> dict:
     SOLUTIONS_DIR.mkdir(parents=True, exist_ok=True)
     stem = f"assignment_{assignment_id}_{_safe_stem(assignment['title'])}_draft"
     version = 2
-    while (SOLUTIONS_DIR / f"{stem}_v{version}.docx").exists():
+    while (course_dir / f"{stem}_v{version}.docx").exists():
         version += 1
     saved = _save_word_only(assignment, content, version)
     save_solution_draft(assignment_id, Path(saved["path"]))

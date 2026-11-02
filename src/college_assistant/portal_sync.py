@@ -317,8 +317,23 @@ def run_sync(*, download_materials: bool = False, auto_generate_drafts: bool = F
             )
             page = context.new_page()
             try:
-                for course_id in COURSE_IDS:
-                    results.append(scan_course(page, course_id, download_materials=download_materials))
+                courses = discover_courses(page)
+                print(f"Discovered {len(courses)} enrolled Moodle courses.")
+                for course_id, discovered_title in courses.items():
+                    try:
+                        result = scan_course(page, course_id, download_materials=download_materials)
+                        results.append(result)
+                    except RuntimeError as error:
+                        if "session expired" in str(error).casefold():
+                            raise
+                        print(f"Skipping course {discovered_title} ({course_id}): {error}")
+                        results.append({
+                            "course_id": course_id, "course_title": discovered_title,
+                            "first_scan": get_course_scan_time(course_id) is None,
+                            "activities_seen": 0, "assignments": [], "changes": [],
+                            "materials_downloaded": 0, "material_download_failures": 1,
+                            "error": str(error),
+                        })
             finally:
                 context.close()
                 browser.close()

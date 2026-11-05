@@ -173,3 +173,26 @@ def list_courses() -> list[dict]:
             ORDER BY courses.title COLLATE NOCASE
         """).fetchall()
     return [dict(row) for row in rows]
+
+
+def save_sync_events(run_id: int, results: list[dict]) -> None:
+    """Persist immutable activity changes for a completed sync run."""
+    rows = []
+    for course in results:
+        for change in course.get("changes", []):
+            rows.append((run_id, course.get("course_id", ""), change.get("course", course.get("course_title", "")), change.get("title", ""), change.get("type", "unknown"), change.get("change", "unknown"), change.get("url", "")))
+    if rows:
+        with get_connection() as connection:
+            connection.executemany("""INSERT INTO sync_events (run_id, course_id, course_title, activity_title, activity_type, change_type, activity_url) VALUES (?, ?, ?, ?, ?, ?, ?)""", rows)
+
+
+def list_recent_sync_runs(limit: int = 10) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute("""SELECT r.id, r.started_at, r.finished_at, r.status, r.error, COUNT(e.id) AS change_count, SUM(CASE WHEN e.activity_type = 'assignment' AND e.change_type IN ('new', 'changed') THEN 1 ELSE 0 END) AS assignment_change_count FROM sync_runs r LEFT JOIN sync_events e ON e.run_id = r.id GROUP BY r.id ORDER BY r.id DESC LIMIT ?""", (limit,)).fetchall()
+    return [dict(row) for row in rows]
+
+
+def list_sync_events(run_id: int) -> list[dict]:
+    with get_connection() as connection:
+        rows = connection.execute("SELECT * FROM sync_events WHERE run_id = ? ORDER BY course_title COLLATE NOCASE, activity_title COLLATE NOCASE", (run_id,)).fetchall()
+    return [dict(row) for row in rows]

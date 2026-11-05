@@ -160,3 +160,16 @@ def approve_solution(assignment_id: int, approved_path: Path) -> bool:
             WHERE id = ? AND solution_path IS NOT NULL
         """, (str(approved_path), assignment_id))
         return cursor.rowcount > 0
+
+
+def list_courses() -> list[dict]:
+    """Return locally known courses with assignment/material counts."""
+    with get_connection() as connection:
+        rows = connection.execute("""
+            SELECT courses.course_id, courses.title, courses.last_successful_scan,
+                   (SELECT COUNT(*) FROM assignments WHERE assignments.course_id = courses.course_id) AS assignment_count,
+                   (SELECT COUNT(*) FROM materials WHERE materials.course_id = courses.course_id) AS material_count
+            FROM courses
+            ORDER BY courses.title COLLATE NOCASE
+        """).fetchall()
+    return [dict(row) for row in rows]

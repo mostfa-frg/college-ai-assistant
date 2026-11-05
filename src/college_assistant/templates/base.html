@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ page_title }} · College AI Assistant</title>
+<style>
+:root{color-scheme:light;--ink:#172b27;--muted:#71817b;--line:#e4ebe6;--paper:#f5f7f4;--green:#205b49;--mint:#e3f1e9;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.55 Inter,Segoe UI,Arial,sans-serif}
+.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}aside{background:#173e34;color:white;padding:25px 16px;display:flex;flex-direction:column;gap:28px}.brand{font-size:19px;font-weight:800;padding:0 12px}.brand span{color:#a9d8bd}.brand small{display:block;color:#b8cec4;font-size:11px;font-weight:400;margin-top:3px}
+nav{display:grid;gap:5px}nav a{color:#d6e5dd;text-decoration:none;padding:10px 12px;border-radius:9px;display:flex;gap:11px;align-items:center}nav a.active,nav a:hover{background:#2b584a;color:white}.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:1.4px;color:#94b4a5;padding:13px 12px 4px}
+.aside-foot{margin-top:auto;padding:12px;color:#b8cec4;font-size:11px;border-top:1px solid #426557}
+main{min-width:0;padding:34px clamp(18px,4vw,56px);max-width:1500px;width:100%;margin:0 auto}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px}.crumb{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);font-weight:800}h1{font-size:30px;letter-spacing:-.8px;margin:4px 0}.subtitle{color:var(--muted);margin:0}
+button,.btn{font:inherit;font-weight:700;border:0;border-radius:9px;padding:10px 14px;background:var(--green);color:white;text-decoration:none;cursor:pointer}.btn.secondary,button.secondary{background:var(--mint);color:var(--green)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 0}.card,.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:18px}.stat-label{font-size:12px;color:var(--muted)}.stat-value{font-size:28px;font-weight:800;margin-top:5px}.panel{padding:0;overflow:hidden}.panel-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.panel-head h2{font-size:16px;margin:0}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);background:#fbfcfa}tr:last-child td{border:0}.muted{color:var(--muted);font-size:12px}.pill{display:inline-block;padding:3px 9px;border-radius:20px;background:#eef2ef;font-size:11px;font-weight:700}.pill.warn{background:#fff1d7;color:#805500}.pill.good{background:#e1f4e7;color:#23633d}.empty{padding:40px;text-align:center;color:var(--muted)}.notice{padding:12px 15px;border-radius:10px;background:#e1f4e7;color:#23633d;margin-bottom:16px}.notice.error{background:#fce8e6;color:#9b3027}
+.course-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.course-card{background:white;border:1px solid var(--line);border-radius:14px;padding:19px}.course-card h3{margin:0 0 4px}.row-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:900px){.app{grid-template-columns:76px minmax(0,1fr)}aside{padding:20px 9px}.brand{font-size:0;text-align:center;padding:0}.brand:first-letter{font-size:20px}.brand small,.nav-label,.nav-text,.aside-foot{display:none}nav a{justify-content:center;font-size:0}nav a .ico{font-size:17px}.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){main{padding:22px 13px}.top{align-items:flex-start;flex-direction:column}h1{font-size:25px}.course-grid{grid-template-columns:1fr}.grid{gap:8px}.card{padding:13px}}
+</style></head>
+<body><div class="app"><aside>
+<div class="brand">College <span>AI</span><small>Personal learning workspace</small></div>
+<nav>
+<div class="nav-label">Workspace</div>
+<a class="{{ 'active' if active=='overview' else '' }}" href="/"><span class="ico">⌂</span><span class="nav-text">Overview</span></a>
+<a class="{{ 'active' if active=='assignments' else '' }}" href="/assignments"><span class="ico">▤</span><span class="nav-text">Assignments</span></a>
+<a class="{{ 'active' if active=='courses' else '' }}" href="/courses"><span class="ico">▣</span><span class="nav-text">Courses</span></a>
+<a class="{{ 'active' if active=='materials' else '' }}" href="/materials"><span class="ico">▧</span><span class="nav-text">Materials</span></a>
+<a class="{{ 'active' if active=='drafts' else '' }}" href="/drafts"><span class="ico">✎</span><span class="nav-text">Drafts & Review</span></a>
+<div class="nav-label">App</div>
+<a class="{{ 'active' if active=='settings' else '' }}" href="/settings"><span class="ico">⚙</span><span class="nav-text">Settings</span></a>
+</nav><div class="aside-foot">Local-first · Moodle sync is manual<br>Review stays on this computer.</div></aside>
+<main><div class="top"><div><div class="crumb">{{ section_label }}</div><h1>{{ page_title }}</h1><p class="subtitle">{{ subtitle }}</p></div>
+<form action="/actions/check" method="post"><button type="submit" class="secondary">↻ Check Moodle</button></form></div>
+{% if request.query_params.get('error') %}<div class="notice error">{{ request.query_params.get('error') }}</div>{% endif %}
+{% if request.query_params.get('notice') %}<div class="notice">{{ notice_text or 'Action completed.' }}</div>{% endif %}
+{% block content %}{% endblock %}
+</main></div></body></html>

@@ -45,7 +45,9 @@ def _workspace_page(request: Request, active: str, title: str, subtitle: str, **
         "request": request, "active": active, "page_title": title,
         "section_label": "College AI Assistant / Workspace", "subtitle": subtitle,
         "assignments": assignments, "assignments_by_course": grouped, "counts": counts,
-        "notice_text": "Moodle check completed. Assignment and course data has been refreshed."
+        "notice_text": (f"{request.query_params.get('new_assignments', '0')} new or updated assignments found."
+             if int(request.query_params.get("new_assignments", "0") or 0) > 0
+             else "No new assignments since your last check.")
             if request.query_params.get("notice") == "check-complete" else None,
     }
     context.update(extra)
@@ -134,7 +136,7 @@ def check_assignments():
         return RedirectResponse(url="/?notice=login-opened", status_code=303)
 
     try:
-        results = run_sync(download_materials=True)
+        results = run_sync(download_materials=False)
     except RuntimeError as exc:
         if "portal session expired" not in str(exc).casefold():
             return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
@@ -146,9 +148,9 @@ def check_assignments():
         return RedirectResponse(url="/?notice=login-opened", status_code=303)
     except (FileNotFoundError, OSError, TimeoutError) as exc:
         return RedirectResponse(url="/?error=" + quote("Moodle sync failed: " + str(exc), safe=""), status_code=303)
-    change_count = sum(len(course.get("changes", [])) for course in results)
+    change_count = sum(1 for course in results for change in course.get("changes", []) if change.get("type") == "assignment" and change.get("change") in {"new", "changed"})
     return RedirectResponse(
-        url=f"/?notice=check-complete&changes={change_count}",
+        url=f"/?notice=check-complete&new_assignments={change_count}",
         status_code=303,
     )
 
@@ -163,12 +165,12 @@ def complete_login():
                 url="/?login_error=" + quote(detail, safe=""),
                 status_code=303,
             )
-        results = run_sync(download_materials=True)
+        results = run_sync(download_materials=False)
     except (RuntimeError, FileNotFoundError, OSError, TimeoutError) as exc:
         return RedirectResponse(url="/?login_error=" + quote("Sign-in or Moodle sync failed: " + str(exc), safe=""), status_code=303)
-    change_count = sum(len(course.get("changes", [])) for course in results)
+    change_count = sum(1 for course in results for change in course.get("changes", []) if change.get("type") == "assignment" and change.get("change") in {"new", "changed"})
     return RedirectResponse(
-        url=f"/?notice=check-complete&changes={change_count}",
+        url=f"/?notice=check-complete&new_assignments={change_count}",
         status_code=303,
     )
 

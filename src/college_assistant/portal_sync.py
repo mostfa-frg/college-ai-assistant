@@ -322,15 +322,19 @@ def scan_course(page, course_id: str, *, download_materials: bool = False) -> di
             })
 
         if activity_type == "assignment":
-            instructions_text, submission_status = _inspect_assignment(page.context, url)
-            upsert_assignment(
-                course_id, key, title, url,
-                instructions_text=instructions_text,
-                submission_status=submission_status,
-            )
+            # Assignment detail pages are the expensive part of a Moodle scan.
+            # Re-open them only for first-seen or changed activities; unchanged
+            # assignments retain their previously stored submission state.
+            if change != "unchanged":
+                instructions_text, submission_status = _inspect_assignment(page.context, url)
+                upsert_assignment(
+                    course_id, key, title, url,
+                    instructions_text=instructions_text,
+                    submission_status=submission_status,
+                )
             assignments.append({
                 "title": title, "url": url, "key": key,
-                "submission_status": submission_status,
+                "submission_status": "checked" if change != "unchanged" else "unchanged",
             })
 
     # An empty result may mean a portal/layout/loading problem, not that all

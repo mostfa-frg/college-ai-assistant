@@ -39,6 +39,21 @@ def initialize_database() -> None:
             )
         """)
         connection.execute("""
+            CREATE TABLE IF NOT EXISTS sync_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL,
+                course_id TEXT NOT NULL,
+                course_title TEXT NOT NULL,
+                activity_title TEXT NOT NULL,
+                activity_type TEXT NOT NULL,
+                change_type TEXT NOT NULL,
+                activity_url TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(run_id) REFERENCES sync_runs(id) ON DELETE CASCADE
+            )
+        """)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_sync_events_run ON sync_events(run_id)")
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS courses (
                 course_id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,

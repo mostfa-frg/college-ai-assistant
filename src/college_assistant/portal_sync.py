@@ -17,6 +17,7 @@ from college_assistant.storage.repositories import (
     mark_missing_activities_inactive,
     save_activity,
     save_course_scan,
+    save_sync_events,
     start_sync_run,
     upsert_assignment,
 )

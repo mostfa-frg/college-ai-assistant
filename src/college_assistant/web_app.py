@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from college_assistant.assignment_solutions import regenerate_assignment_draft
-from college_assistant.config import PORTAL_STATE_FILE, SOLUTIONS_DIR
+from college_assistant.config import LLM_MODEL, LLM_PROVIDER, PORTAL_STATE_FILE, SOLUTIONS_DIR
 from college_assistant.portal_login import complete_portal_login_from_web, start_portal_login_from_web
 from college_assistant.portal_sync import run_sync
 from college_assistant.storage.database import initialize_database
@@ -18,6 +18,7 @@ from college_assistant.storage.repositories import (
     get_assignment,
     list_assignments,
     list_materials,
+    list_courses,
 )
 
 app = FastAPI(title="College AI Assistant", version="0.1.0")
@@ -29,24 +30,71 @@ def startup() -> None:
     initialize_database()
 
 
-@app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request):
+def _workspace_page(request: Request, active: str, title: str, subtitle: str, **extra):
     assignments = list_assignments()
-    assignments_by_course = {}
-    for assignment in assignments:
-        course = assignment.get("course_title") or assignment.get("course_id") or "Other"
-        assignments_by_course.setdefault(course, []).append(assignment)
+    grouped = {}
+    for item in assignments:
+        grouped.setdefault(item.get("course_title") or item.get("course_id") or "Other", []).append(item)
     counts = {
         "total": len(assignments),
         "ready": sum(a.get("submission_status") == "not_submitted" for a in assignments),
         "review": sum(a.get("solution_status") == "pending_review" for a in assignments),
         "approved": sum(a.get("solution_status") == "approved" for a in assignments),
     }
-    return templates.TemplateResponse(
-        request=request,
-        name="dashboard.html",
-        context={"assignments": assignments, "assignments_by_course": assignments_by_course, "counts": counts},
-    )
+    context = {
+        "request": request, "active": active, "page_title": title,
+        "section_label": "College AI Assistant / Workspace", "subtitle": subtitle,
+        "assignments": assignments, "assignments_by_course": grouped, "counts": counts,
+        "notice_text": "Moodle check completed. Assignment and course data has been refreshed."
+            if request.query_params.get("notice") == "check-complete" else None,
+    }
+    context.update(extra)
+    return templates.TemplateResponse(request=request, name="workspace.html", context=context)
+
+
+@app.get("/", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return _workspace_page(request, "overview", "Overview",
+        "A clear snapshot of assignments and the latest state of your coursework.")
+
+
+@app.get("/assignments", response_class=HTMLResponse)
+def assignments_page(request: Request, course_id: str | None = None):
+    assignments = list_assignments()
+    if course_id:
+        assignments = [a for a in assignments if a.get("course_id") == course_id]
+    grouped = {}
+    for item in assignments:
+        grouped.setdefault(item.get("course_title") or item.get("course_id") or "Other", []).append(item)
+    return _workspace_page(request, "assignments", "Assignments",
+        "Assignments grouped by course, ready for tracking and local review.",
+        assignments=assignments, assignments_by_course=grouped)
+
+
+@app.get("/courses", response_class=HTMLResponse)
+def courses_page(request: Request):
+    return _workspace_page(request, "courses", "Courses",
+        "Your enrolled Moodle courses and their locally stored content.", courses=list_courses())
+
+
+@app.get("/materials", response_class=HTMLResponse)
+def materials_page(request: Request, course_id: str | None = None):
+    return _workspace_page(request, "materials", "Materials",
+        "Browse course files already downloaded to this computer.", materials=list_materials(course_id))
+
+
+@app.get("/drafts", response_class=HTMLResponse)
+def drafts_page(request: Request):
+    drafts = [a for a in list_assignments() if a.get("solution_path") or a.get("approved_solution_path")]
+    return _workspace_page(request, "drafts", "Drafts & Review",
+        "Generated solutions and locally approved copies.", drafts=drafts)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request):
+    return _workspace_page(request, "settings", "Settings",
+        "Connection and model information for this local installation.",
+        session_exists=PORTAL_STATE_FILE.is_file(), provider=LLM_PROVIDER, model=LLM_MODEL)
 
 
 @app.get("/materials/{material_id}")

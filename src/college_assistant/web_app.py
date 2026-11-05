@@ -19,6 +19,7 @@ from college_assistant.storage.repositories import (
     list_assignments,
     list_materials,
     list_courses,
+    list_recent_sync_runs,
 )
 
 app = FastAPI(title="College AI Assistant", version="0.1.0")
@@ -45,6 +46,7 @@ def _workspace_page(request: Request, active: str, title: str, subtitle: str, **
         "request": request, "active": active, "page_title": title,
         "section_label": "College AI Assistant / Workspace", "subtitle": subtitle,
         "assignments": assignments, "assignments_by_course": grouped, "counts": counts,
+        "sync_history": list_recent_sync_runs(5),
         "notice_text": (f"{request.query_params.get('new_assignments', '0')} new or updated assignments found."
              if int(request.query_params.get("new_assignments", "0") or 0) > 0
              else "No new assignments since your last check.")

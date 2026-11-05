@@ -15,8 +15,17 @@ button,.btn{font:inherit;font-weight:700;border:0;border-radius:9px;padding:10px
 .course-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.course-card{background:white;border:1px solid var(--line);border-radius:14px;padding:19px}.course-card h3{margin:0 0 4px}.row-actions{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:900px){.app{grid-template-columns:76px minmax(0,1fr)}aside{padding:20px 9px}.brand{font-size:0;text-align:center;padding:0}.brand:first-letter{font-size:20px}.brand small,.nav-label,.nav-text,.aside-foot{display:none}nav a{justify-content:center;font-size:0}nav a .ico{font-size:17px}.grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){main{padding:22px 13px}.top{align-items:flex-start;flex-direction:column}h1{font-size:25px}.course-grid{grid-template-columns:1fr}.grid{gap:8px}.card{padding:13px}}
+
+.sync-overlay{display:none;position:fixed;inset:0;z-index:1000;background:rgba(15,35,29,.72);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:20px}.sync-overlay.visible{display:flex}.sync-dialog{width:min(440px,100%);background:white;border-radius:18px;padding:30px;text-align:center;box-shadow:0 25px 80px #0003}.spinner{width:38px;height:38px;border:4px solid #e1ece5;border-top-color:#205b49;border-radius:50%;margin:0 auto 18px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.sync-dialog h2{margin:0 0 8px}.sync-dialog p{color:var(--muted)}.sync-dialog .notice{margin:14px 0;text-align:left}.login-gate{position:fixed;inset:0;z-index:1100;background:#f5f7f4;display:flex;align-items:center;justify-content:center;padding:24px}.login-gate .sync-dialog{max-width:520px}.login-gate .sync-dialog button{width:100%;margin-top:12px}
 </style></head>
-<body><div class="app"><aside>
+<body>
+{% if request.query_params.get('notice') == 'login-opened' or request.query_params.get('login_error') %}
+<div class="login-gate"><div class="sync-dialog"><h2>Connect to Moodle</h2><p>Finish signing in using the Moodle browser window. Then confirm here to verify the session and load your assignments.</p>
+{% if request.query_params.get('login_error') %}<div class="notice error">{{ request.query_params.get('login_error') }}</div>{% endif %}
+<form action="/actions/login/complete" method="post"><button type="submit">I've finished signing in — continue</button></form></div></div>
+{% endif %}
+<div class="sync-overlay" id="sync-overlay"><div class="sync-dialog"><div class="spinner"></div><h2>Checking Moodle</h2><p id="sync-message">Connecting securely and checking your courses…</p><p class="muted">This may take a little while. Keep this window open.</p></div></div>
+<div class="app"><aside>
 <div class="brand">College <span>AI</span><small>Personal learning workspace</small></div>
 <nav>
 <div class="nav-label">Workspace</div>
@@ -33,4 +42,13 @@ button,.btn{font:inherit;font-weight:700;border:0;border-radius:9px;padding:10px
 {% if request.query_params.get('error') %}<div class="notice error">{{ request.query_params.get('error') }}</div>{% endif %}
 {% if request.query_params.get('notice') %}<div class="notice">{{ notice_text or 'Action completed.' }}</div>{% endif %}
 {% block content %}{% endblock %}
-</main></div></body></html>
+</main></div>
+<script>
+document.querySelectorAll('form[action="/actions/check"], form[action="/actions/login/complete"]').forEach(form => {
+ form.addEventListener('submit', () => {
+  const overlay=document.getElementById('sync-overlay');
+  if(overlay){overlay.classList.add('visible');}
+  const button=form.querySelector('button'); if(button){button.disabled=true;button.textContent='Please wait…';}
+ });
+});
+</script></body></html>

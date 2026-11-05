@@ -413,6 +413,7 @@ def run_sync(*, download_materials: bool = False, auto_generate_drafts: bool = F
             finally:
                 context.close()
                 browser.close()
+        save_sync_events(run_id, results)
         finish_sync_run(run_id)
         if auto_generate_drafts:
             from college_assistant.assignment_solutions import generate_pending_drafts
